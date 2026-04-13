@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f3460">
+<meta name="description" content="籃球輪轉分隊系統">
+<title>🏀 籃球輪轉</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:#fafafa;min-height:100vh;min-height:100dvh;overscroll-behavior:none}
+button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;-webkit-appearance:none}
+input{font-family:'DM Sans',sans-serif;-webkit-appearance:none}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
+
+.container{max-width:480px;margin:0 auto;padding:0 16px 120px}
+.header{text-align:center;padding:24px 0 8px;position:sticky;top:0;background:#fafafa;z-index:10;border-bottom:1px solid #e8e8e8}
+.header h1{font-size:22px;font-weight:800;color:#1a1a2e;letter-spacing:1px}
+.header .sub{font-size:12px;color:#888;margin-top:2px}
+.tab-bar{display:flex;gap:0;margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #ddd}
+.tab-btn{flex:1;padding:10px;font-size:13px;font-weight:700;border-radius:0;transition:all .15s}
+.tab-btn.active{background:#0f3460;color:#fff}
+.tab-btn.inactive{background:#f5f5f5;color:#888}
+
+.input-area{margin-top:16px;position:sticky;top:78px;background:#fafafa;z-index:9;padding-bottom:8px}
+.input-row{display:flex;gap:8px}
+.input-row input{flex:1;padding:12px 16px;border-radius:12px;border:2px solid #e0e0e0;font-size:16px;font-weight:500;outline:none;background:#fff;transition:border-color .2s}
+.input-row input:focus{border-color:#0f3460}
+.btn{border-radius:12px;font-weight:700;letter-spacing:.3px;transition:all .15s}
+.btn-primary{padding:12px 16px;background:#0f3460;color:#fff;font-size:15px}
+.btn-danger{background:#e94560;color:#fff}
+.btn-start{width:100%;padding:16px;margin-top:24px;background:linear-gradient(135deg,#e94560,#0f3460);color:#fff;font-size:17px;box-shadow:0 4px 15px rgba(233,69,96,.3);border-radius:12px;font-weight:700}
+
+.mode-toggle{display:flex;gap:4px;margin-bottom:8px}
+.mode-btn{flex:1;padding:7px;font-size:12px;border-radius:12px;font-weight:700;transition:all .15s}
+
+.section-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-top:20px}
+.section-title .icon{font-size:20px}
+.section-title .label{font-size:16px;font-weight:700;color:#1a1a2e;letter-spacing:.5px}
+.section-title .count{font-size:12px;background:#e8e8f0;color:#555;border-radius:10px;padding:2px 8px;font-weight:600}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:15px;font-weight:600;letter-spacing:.3px}
+.badge.small{padding:4px 10px;font-size:13px}
+.badge .num{width:22px;height:22px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.badge.small .num{width:18px;height:18px;font-size:10px}
+.badge .remove{width:18px;height:18px;border-radius:50%;background:#ff4444;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;margin-left:2px;flex-shrink:0}
+
+.team-card{border-radius:16px;padding:16px;margin-bottom:10px}
+.team-card.black{background:#1a1a2e}
+.team-card.white{background:#fff;border:2px solid #e8e8e8}
+.team-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.team-name{font-weight:800;font-size:15px;letter-spacing:1px}
+.role-tag{font-size:12px;padding:2px 8px;border-radius:8px;font-weight:700;color:#fff}
+.role-tag.attack{background:#e94560}
+.role-tag.defense{background:#2196f3}
+.players-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.win-btn{width:100%;padding:12px;margin-top:12px;color:#fff;font-size:15px;border-radius:12px;font-weight:700}
+
+.vs{text-align:center;font-size:13px;font-weight:800;color:#bbb;letter-spacing:3px;margin:4px 0}
+
+.duty-box{background:#f0f4ff;border-radius:12px;padding:12px;margin-bottom:10px;border:1px solid #d0d8f0}
+.priority-label{font-size:11px;font-weight:700;border-radius:8px;padding:3px 10px;margin-top:8px;margin-bottom:6px;display:inline-block}
+
+.log-entry{font-size:13px;color:#555;padding:8px 0;display:flex;align-items:flex-start;gap:8px;white-space:pre-line}
+.log-entry+.log-entry{border-top:1px solid #f0f0f0}
+.speak-btn{padding:6px 10px;font-size:18px;background:#e3f2fd;color:#1565c0;border-radius:10px;flex-shrink:0;line-height:1;font-weight:700}
+
+.undo-btn{position:fixed;bottom:24px;right:24px;z-index:100;padding:12px 18px;background:#ff6b35;color:#fff;font-size:14px;box-shadow:0 4px 16px rgba(255,107,53,.4);border-radius:50px;display:flex;align-items:center;gap:6px;font-weight:700}
+
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal{background:#fff;border-radius:20px;padding:24px;max-width:360px;width:100%;text-align:center}
+.modal h2{font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:4px}
+.modal p{font-size:14px;color:#666;margin-bottom:16px}
+.modal .hint{font-size:11px;color:#aaa;margin-bottom:12px}
+.pos-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.pos-btn{padding:16px 0;font-size:18px;background:#e8f5e9;color:#2e7d32;border:2px solid #4caf50;border-radius:12px;font-weight:700}
+
+.roster-item{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer}
+.checkin-btn{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:20px;background:#fff;border:1.5px solid #0f3460;color:#0f3460;font-size:14px;font-weight:600;cursor:pointer}
+
+.manual-box{margin-top:16px;background:#fff;border-radius:14px;padding:14px;border:1px solid #eee}
+.notice{text-align:center;margin-top:20px;padding:16px;background:#fff3e0;border-radius:12px;font-size:14px;color:#e65100;font-weight:600}
+.reset-btn{width:100%;padding:12px;margin-top:30px;background:transparent;color:#ccc;font-size:13px;border:1px solid #e8e8e8;border-radius:12px;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app" class="container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useCallback, useRef, useEffect } = React;
+const TEAM_SIZE = 5;
+const STORAGE_KEY = "bball_roster_v4";
+const SESSION_KEY = "bball_sessions_v1";
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function playBeep(freq=660,dur=.12){try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=freq;g.gain.value=.15;o.start();g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);o.stop(c.currentTime+dur)}catch(e){}}
+
+function speak(text){  try{    if(!window.speechSynthesis)return;    window.speechSynthesis.cancel();    const doSpeak=()=>{      const u=new SpeechSynthesisUtterance(text);      u.lang="zh-TW";u.rate=0.85;u.pitch=1;u.volume=1;      const voices=window.speechSynthesis.getVoices();      const zh=voices.find(v=>v.lang==="zh-TW")||voices.find(v=>v.lang.startsWith("zh"))||null;      if(zh)u.voice=zh;      window.speechSynthesis.speak(u);    };    const voices=window.speechSynthesis.getVoices();    if(voices.length>0){doSpeak();}    else{window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;doSpeak();};setTimeout(doSpeak,500);}  }catch(e){}}
+
+function getPriority(p){if(!p.isTemp&&!p.isPriority&&p.totalGamesPlayed===0)return 0;if(p.isPriority)return .5;if(p.isTemp)return 1;if(p.totalGamesPlayed===1)return 2;return 3}
+
+function sortQueue(q){return[...q].sort((a,b)=>{const pa=getPriority(a),pb=getPriority(b);if(pa!==pb)return pa-pb;return a.queueOrder-b.queueOrder})}
+
+function Badge({name,displayNum,dark,small,gamesOnCourt,role,isTemp,isPriority,onRemove,showRemove,totalGamesPlayed,refereeCount,onClick}){
+  const rc={"裁判":"#f5a623","記錄台":"#7b68ee"};
+  const bg=dark?"#1a1a2e":isTemp?"#fff8e1":isPriority?"#e8f5e9":"#f0f0f0";
+  const clr=dark?"#e0e0e0":"#1a1a2e";
+  const numBg=dark?"#e94560":isTemp?"#f5a623":isPriority?"#4caf50":"#0f3460";
+  const border=isTemp&&!dark?"1.5px dashed #f5a623":isPriority&&!dark?"1.5px solid #4caf50":"none";
+  return(
+    <div onClick={onClick} className={`badge${small?" small":""}`} style={{background:bg,color:clr,border,cursor:onClick?"pointer":"default"}}>
+      <span className="num" style={{background:numBg}}>{displayNum}</span>
+      <span style={{whiteSpace:"nowrap"}}>{name}</span>
+      {isTemp&&!dark&&<span style={{fontSize:9,color:"#f5a623",fontWeight:700}}>臨</span>}
+      {isPriority&&!dark&&<span style={{fontSize:9,color:"#4caf50",fontWeight:700}}>優</span>}
+      {role&&<span style={{fontSize:10,background:rc[role]||"#888",color:"#fff",borderRadius:8,padding:"1px 6px",fontWeight:700}}>{role}</span>}
+      {!role&&totalGamesPlayed>0&&<span style={{fontSize:10,background:totalGamesPlayed>=2?"#e94560":"#4caf50",color:"#fff",borderRadius:8,padding:"1px 6px",fontWeight:700}}>{totalGamesPlayed}場</span>}
+      {!role&&gamesOnCourt>0&&<span style={{fontSize:10,background:gamesOnCourt>=2?"#ff1744":"#2196f3",color:"#fff",borderRadius:8,padding:"1px 6px",fontWeight:700}}>連{gamesOnCourt}</span>}
+      {!role&&refereeCount>0&&<span style={{fontSize:10,background:"#7c4dff",color:"#fff",borderRadius:8,padding:"1px 6px",fontWeight:700}}>裁{refereeCount}</span>}
+      {showRemove&&<span className="remove" onClick={e=>{e.stopPropagation();onRemove()}}>×</span>}
+    </div>
+  );
+}
+
+function SecTitle({children,icon,count}){
+  return(<div className="section-title"><span className="icon">{icon}</span><span className="label">{children}</span>{count!==undefined&&<span className="count">{count}</span>}</div>);
+}
+
+function PriLabel({priority}){
+  const m={0:{t:"未上場正式球員",bg:"#e3f2fd",c:"#1565c0"},.5:{t:"優先球員",bg:"#e8f5e9",c:"#2e7d32"},1:{t:"臨打球員",bg:"#fff8e1",c:"#e65100"},2:{t:"已打1場",bg:"#e8f5e9",c:"#2e7d32"},3:{t:"已打2場以上",bg:"#fce4ec",c:"#c62828"}};
+  const l=m[priority]||m[3];
+  return <div className="priority-label" style={{color:l.c,background:l.bg}}>{l.t}</div>;
+}
+
+function App(){
+  const[roster,setRoster]=useState([]);
+  const[rosterInput,setRosterInput]=useState("");
+  const[tab,setTab]=useState("game");
+  const[allPlayers,setAllPlayers]=useState([]);
+  const[nameInput,setNameInput]=useState("");
+  const[nextId,setNextId]=useState(1);
+  const[queueCounter,setQueueCounter]=useState(1);
+  const[addMode,setAddMode]=useState("temp");
+  const[blackTeam,setBlackTeam]=useState([]);
+  const[whiteTeam,setWhiteTeam]=useState([]);
+  const[waitQueue,setWaitQueue]=useState([]);
+  const[blackCon,setBlackCon]=useState(0);
+  const[whiteCon,setWhiteCon]=useState(0);
+  const[atkColor,setAtkColor]=useState("white");
+  const[gameCount,setGameCount]=useState(0);
+  const[log,setLog]=useState([]);
+  const[phase,setPhase]=useState("checkin");
+  const[showLog,setShowLog]=useState(false);
+  const[editMode,setEditMode]=useState(false);
+  const[history,setHistory]=useState([]);
+  const[showPP,setShowPP]=useState(false);
+  const[ppPlayer,setPPPlayer]=useState(null);
+  const[sessions,setSessions]=useState({});
+  const[selectedDate,setSelectedDate]=useState(()=>new Date().toISOString().slice(0,10));
+  const[calMonth,setCalMonth]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}});
+  const iRef=useRef(null);
+  const rRef=useRef(null);
+
+  useEffect(()=>{
+    try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0};return{attendanceDates:[],refereeCount:0,...x};}))}}catch{}
+    try{const sv=localStorage.getItem(SESSION_KEY);if(sv)setSessions(JSON.parse(sv))}catch{}
+    if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
+  },[]);
+  useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(roster))}catch{}},[roster]);
+  useEffect(()=>{try{localStorage.setItem(SESSION_KEY,JSON.stringify(sessions))}catch{}},[sessions]);
+  const selectedDateRef=useRef(selectedDate);
+  useEffect(()=>{selectedDateRef.current=selectedDate;},[selectedDate]);
+  useEffect(()=>{const sd=selectedDateRef.current;if(!sd)return;setSessions(prev=>({...prev,[sd]:{allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter}}));},[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase]);
+
+  const addRoster=useCallback(()=>{const t=rosterInput.trim();if(!t||roster.some(x=>x.name===t))return;setRoster(p=>[...p,{name:t,attendanceDates:[],refereeCount:0}]);setRosterInput("");playBeep(880,.08);setTimeout(()=>rRef.current?.focus(),50)},[rosterInput,roster]);
+  const rmRoster=n=>setRoster(p=>p.filter(x=>x.name!==n));
+
+  const checkin=useCallback(name=>{if(allPlayers.some(p=>p.name===name))return;const pl={name,id:nextId,isTemp:false,isPriority:false,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:queueCounter};setAllPlayers(p=>[...p,pl]);if(phase==="playing")setWaitQueue(p=>sortQueue([...p,pl]));setRoster(r=>r.map(x=>x.name===name?{...x,attendanceDates:x.attendanceDates.includes(selectedDate)?x.attendanceDates:[...x.attendanceDates,selectedDate]}:x));setNextId(n=>n+1);setQueueCounter(n=>n+1);playBeep(880,.08)},[allPlayers,nextId,queueCounter,phase,selectedDate]);
+
+  const addPlayer=useCallback(()=>{const t=nameInput.trim();if(!t||allPlayers.some(p=>p.name===t))return;const isT=addMode==="temp",isP=addMode==="priority";const pl={name:t,id:nextId,isTemp:isT,isPriority:isP,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:queueCounter};setAllPlayers(p=>[...p,pl]);if(phase==="playing"){if(isP){setPPPlayer(pl);setShowPP(true)}else setWaitQueue(p=>sortQueue([...p,pl]))}else if(isP){setPPPlayer(pl);setShowPP(true)}setNextId(n=>n+1);setQueueCounter(n=>n+1);setNameInput("");playBeep(880,.08);setTimeout(()=>iRef.current?.focus(),50)},[nameInput,nextId,allPlayers,phase,addMode,queueCounter]);
+
+  const insertPri=useCallback(pos=>{if(!ppPlayer)return;if(phase==="playing"){setWaitQueue(prev=>{const q=[...prev];q.splice(Math.min(3+pos-1,q.length),0,{...ppPlayer,queueOrder:-1});return q})}setPPPlayer(null);setShowPP(false);playBeep(660,.1)},[ppPlayer,phase]);
+
+  const rmPlayer=useCallback(pid=>{const p=allPlayers.find(x=>x.id===pid);setAllPlayers(a=>a.filter(x=>x.id!==pid));setBlackTeam(a=>a.filter(x=>x.id!==pid));setWhiteTeam(a=>a.filter(x=>x.id!==pid));setWaitQueue(a=>a.filter(x=>x.id!==pid));if(p)setLog(l=>[...l,{text:`🚪 ${p.name} 離開了`}])},[allPlayers]);
+
+  const snap=useCallback(()=>JSON.parse(JSON.stringify({allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,queueCounter})),[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,queueCounter]);
+
+  const restore=useCallback(s=>{setAllPlayers(s.allPlayers);setBlackTeam(s.blackTeam);setWhiteTeam(s.whiteTeam);setWaitQueue(s.waitQueue);setBlackCon(s.blackCon);setWhiteCon(s.whiteCon);setAtkColor(s.atkColor);setGameCount(s.gameCount);setLog(s.log);setPhase(s.phase);setQueueCounter(s.queueCounter)},[]);
+
+  const undo=useCallback(()=>{if(!history.length)return;restore(history[history.length-1]);setHistory(h=>h.slice(0,-1));playBeep(330,.15)},[history,restore]);
+
+  const mkAnn=(an,ap,dn,dp,g,duty=[])=>{let s=`第${g}場，攻擊方${an}，${ap.map(p=>p.name).join("，")}。防守方${dn}，${dp.map(p=>p.name).join("，")}。`;if(duty.length>0)s+=`裁判${duty[0].name}。`;if(duty.length>1)s+=`計分${duty[1].name}。`;return s;};
+
+  const startGame=useCallback(()=>{const regs=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);if(regs.length<10)return;setHistory(h=>[...h,snap()]);const f10=regs.slice(0,10).map(p=>({...p,totalGamesPlayed:1,gamesOnCourt:1}));const sh=shuffle(f10);const bk=sh.slice(0,5),wt=sh.slice(5,10);const rest=allPlayers.filter(p=>!f10.some(f=>f.id===p.id)).map(p=>({...p,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:p.queueOrder||p.id}));const ids=new Set(f10.map(p=>p.id));setAllPlayers(prev=>prev.map(p=>ids.has(p.id)?{...p,totalGamesPlayed:1}:p));setBlackTeam(bk);setWhiteTeam(wt);setWaitQueue(sortQueue(rest));setBlackCon(1);setWhiteCon(1);setAtkColor("white");setGameCount(1);setPhase("playing");const iQ=sortQueue(rest);const iDC=Math.max(0,Math.min(2,iQ.length-5));const iDuty=iQ.slice(0,iDC);const iRefs=new Set(iDuty.map(p=>p.name));if(iRefs.size>0)setRoster(r=>r.map(x=>iRefs.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));const ann=mkAnn("白隊",wt,"黑隊",bk,1,iDuty);const dutyText=iDuty.length>0?`\n📣 ${iDuty.map((p,i)=>i===0?`裁判：${p.name}`:i===1?`計分：${p.name}`:``).filter(Boolean).join(" · ")}`:"";setLog([{text:`🏀 第1場開始！\n⚔️ 攻擊：白隊 (${wt.map(p=>p.name).join("、")})\n🛡️ 防守：黑隊 (${bk.map(p=>p.name).join("、")})${dutyText}`,announcement:ann}]);playBeep(440,.2)},[allPlayers,snap]);
+
+  const reportWin=useCallback(winner=>{setHistory(h=>[...h,snap()]);const winT=winner==="black"?[...blackTeam]:[...whiteTeam];const loseT=winner==="black"?[...whiteTeam]:[...blackTeam];const wL=winner==="black"?"黑隊":"白隊";const wCon=winner==="black"?blackCon:whiteCon;const aL=atkColor==="black"?"黑隊":"白隊";const dL=atkColor==="black"?"白隊":"黑隊";const nGC=gameCount+1;const nLog=[...log,{text:`✅ 第${gameCount}場結果：${wL}勝！（⚔️${aL}攻 vs 🛡️${dL}防）`}];let nQC=queueCounter;const lToQ=loseT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=loseT.length;let nQ=[...waitQueue,...lToQ];let stay;let nWC=wCon+1;const mustR=wCon>=2;if(mustR){nLog.push({text:`🔄 ${wL}已連贏2場，全隊下場輪換`});const wToQ=winT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=winT.length;nQ=[...nQ,...wToQ];stay=null;nWC=0}else{stay=winT.map(p=>({...p,gamesOnCourt:p.gamesOnCourt+1}))}nQ=sortQueue(nQ);const needed=stay?5:10;const totalDC=Math.max(0,Math.min(3,nQ.length-needed));const dutyPool=nQ.slice(0,totalDC);const playPool=nQ.slice(totalDC);let nB,nW,fQ,nBC,nWC2,nAC;if(stay){const ch=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));fQ=[...dutyPool,...playPool.slice(5)];if(winner==="black"){nB=stay;nW=ch;nBC=nWC;nWC2=1;nAC="white"}else{nW=stay;nB=ch;nWC2=nWC;nBC=1;nAC="black"}}else{const t1=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));const t2=playPool.slice(5,10).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));nB=t1;nW=t2;fQ=[...dutyPool,...playPool.slice(10)];nBC=1;nWC2=1;nAC="white"}const ocM={};[...(nB||[]),...(nW||[])].forEach(p=>{ocM[p.id]=p.totalGamesPlayed});const qM={};fQ.forEach(p=>{qM[p.id]=p.totalGamesPlayed});setAllPlayers(prev=>prev.map(p=>{if(ocM[p.id]!==undefined)return{...p,totalGamesPlayed:ocM[p.id]};if(qM[p.id]!==undefined)return{...p,totalGamesPlayed:qM[p.id]};return p}));if((nB?.length||0)<5||(nW?.length||0)<5){nLog.push({text:`⚠️ 等候區人數不足，需要更多人才能繼續`})}else{const an=nAC==="black"?"黑隊":"白隊";const dn=nAC==="black"?"白隊":"黑隊";const ap=nAC==="black"?nB:nW;const dp=nAC==="black"?nW:nB;const ann=mkAnn(an,ap,dn,dp,nGC,dutyPool);const dutyTxt=dutyPool.length>0?`\n📣 ${dutyPool.map((p,i)=>i===0?`裁判：${p.name}`:i===1?`計分：${p.name}`:``).filter(Boolean).join(" · ")}`:"";nLog.push({text:`🏀 第${nGC}場開始！\n⚔️ 攻擊：${an} (${ap.map(p=>p.name).join("、")})\n🛡️ 防守：${dn} (${dp.map(p=>p.name).join("、")})${dutyTxt}`,announcement:ann})}setBlackTeam(nB||[]);setWhiteTeam(nW||[]);setWaitQueue(fQ);setBlackCon(nBC);setWhiteCon(nWC2);setAtkColor(nAC);setGameCount(nGC);setQueueCounter(nQC);setLog(nLog);const refNames=new Set(dutyPool.slice(0,Math.min(2,dutyPool.length)).map(p=>p.name));if(refNames.size>0)setRoster(r=>r.map(x=>refNames.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));playBeep(440,.2)},[blackTeam,whiteTeam,waitQueue,gameCount,log,blackCon,whiteCon,atkColor,queueCounter,snap]);
+
+  const getGameState=()=>({allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter});
+  const applyGameState=s=>{setAllPlayers(s.allPlayers||[]);setBlackTeam(s.blackTeam||[]);setWhiteTeam(s.whiteTeam||[]);setWaitQueue(s.waitQueue||[]);setBlackCon(s.blackCon||0);setWhiteCon(s.whiteCon||0);setAtkColor(s.atkColor||"white");setGameCount(s.gameCount||0);setLog(s.log||[]);setPhase(s.phase||"checkin");setNextId(s.nextId||1);setQueueCounter(s.queueCounter||1);setHistory([]);setEditMode(false);setNameInput("");setAddMode("temp");};
+  const switchToDate=useCallback((date)=>{if(date===selectedDate)return;setSelectedDate(date);const saved=sessions[date];if(saved){applyGameState(saved);}else{setAllPlayers([]);setBlackTeam([]);setWhiteTeam([]);setWaitQueue([]);setBlackCon(0);setWhiteCon(0);setAtkColor("white");setGameCount(0);setLog([]);setPhase("checkin");setNextId(1);setQueueCounter(1);setHistory([]);setEditMode(false);setNameInput("");setAddMode("temp");}},[selectedDate,sessions]);
+  const resetAll=()=>{if(!confirm("確定要重置？（資料庫保留）"))return;setAllPlayers([]);setBlackTeam([]);setWhiteTeam([]);setWaitQueue([]);setBlackCon(0);setWhiteCon(0);setAtkColor("white");setGameCount(0);setLog([]);setPhase("checkin");setNextId(1);setQueueCounter(1);setNameInput("");setEditMode(false);setHistory([]);setAddMode("temp")};
+
+  const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
+  const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(dutyCount>=3)return i<=1?"裁判":"記錄台";if(dutyCount===2)return i===0?"裁判":"計分";return"裁判";};
+  const regsCI=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);
+  const tempsCI=allPlayers.filter(p=>p.isTemp);
+  const priCI=allPlayers.filter(p=>p.isPriority);
+  const ciNames=new Set(allPlayers.map(p=>p.name));
+  const avail=roster.filter(r=>!ciNames.has(r.name));
+
+  return(
+    <>
+      <div className="header">
+        <h1>🏀 籃球輪轉</h1>
+        <div className="sub">{selectedDate} · {phase==="checkin"?`簽到中 · 正式 ${regsCI.length} 人`:`第 ${gameCount} 場 · 等候 ${waitQueue.length} 人`}</div>
+        <div className="tab-bar">
+          <button className={`tab-btn ${tab==="game"?"active":"inactive"}`} onClick={()=>setTab("game")}>⚡ 比賽</button>
+          <button className={`tab-btn ${tab==="calendar"?"active":"inactive"}`} onClick={()=>setTab("calendar")}>📅 日歷</button>
+          <button className={`tab-btn ${tab==="roster"?"active":"inactive"}`} onClick={()=>setTab("roster")}>📒 資料庫</button>
+        </div>
+      </div>
+
+
+      {/* CALENDAR */}
+      {tab==="calendar"&&(()=>{
+        const {y,m}=calMonth;
+        const firstDay=new Date(y,m,1).getDay();
+        const daysInMonth=new Date(y,m+1,0).getDate();
+        const td=new Date().toISOString().slice(0,10);
+        const cells=[];
+        for(let i=0;i<firstDay;i++)cells.push(null);
+        for(let d=1;d<=daysInMonth;d++)cells.push(d);
+        const allSessions=Object.entries(sessions).filter(([,s])=>s.gameCount>0).sort((a,b)=>b[0].localeCompare(a[0]));
+        return(
+          <div style={{marginTop:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <button className="btn" style={{padding:"8px 18px",background:"#f0f0f0",color:"#555",fontSize:18,borderRadius:10}} onClick={()=>setCalMonth(({y,m})=>m===0?{y:y-1,m:11}:{y,m:m-1})}>‹</button>
+              <span style={{fontWeight:800,fontSize:17,color:"#1a1a2e"}}>{y}年{m+1}月</span>
+              <button className="btn" style={{padding:"8px 18px",background:"#f0f0f0",color:"#555",fontSize:18,borderRadius:10}} onClick={()=>setCalMonth(({y,m})=>m===11?{y:y+1,m:0}:{y,m:m+1})}>›</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:6}}>
+              {["日","一","二","三","四","五","六"].map(d=><div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:"#aaa",padding:"4px 0"}}>{d}</div>)}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+              {cells.map((d,i)=>{
+                if(!d)return<div key={"e"+i}/>;
+                const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+                const sess=sessions[ds];
+                const hasGame=sess&&sess.gameCount>0;
+                const isToday=ds===td;
+                const isSel=ds===selectedDate;
+                return(
+                  <div key={ds} onClick={()=>{switchToDate(ds);setTab("game");}} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:10,cursor:"pointer",background:isSel?"#0f3460":hasGame?"#fff8e1":isToday?"#e3f0ff":"#f5f5f5",border:isSel?"2px solid #0f3460":isToday?"2px solid #7ab3ef":"2px solid transparent"}}>
+                    <span style={{fontSize:13,fontWeight:isSel||isToday?800:500,color:isSel?"#fff":isToday?"#0f3460":"#333"}}>{d}</span>
+                    {hasGame&&<span style={{fontSize:8,marginTop:1,color:isSel?"#aed6ff":"#e65100",fontWeight:700}}>{sess.gameCount}場</span>}
+                    {!hasGame&&isToday&&<span style={{fontSize:8,color:"#7ab3ef",fontWeight:700}}>今天</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:20,background:"#fff",borderRadius:14,padding:16,border:"1px solid #eee"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#555",marginBottom:10}}>📋 歷史記錄</div>
+              {allSessions.length===0
+                ?<div style={{textAlign:"center",color:"#aaa",fontSize:13,padding:16}}>還沒有比賽記錄</div>
+                :allSessions.slice(0,15).map(([date,s])=>(
+                  <div key={date} onClick={()=>{switchToDate(date);setTab("game");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid #f0f0f0",cursor:"pointer"}}>
+                    <span style={{fontSize:14,fontWeight:700,color:date===selectedDate?"#0f3460":"#333"}}>{date}</span>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{fontSize:12,background:"#e8f0ff",color:"#3949ab",borderRadius:8,padding:"2px 8px",fontWeight:700}}>共{s.gameCount}場</span>
+                      <span style={{fontSize:12,background:s.phase==="playing"?"#e8f5e9":"#f5f5f5",color:s.phase==="playing"?"#2e7d32":"#aaa",borderRadius:8,padding:"2px 8px",fontWeight:700}}>{s.phase==="playing"?"進行中":"已結束"}</span>
+                      <span style={{color:"#ccc",fontSize:16}}>›</span>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ROSTER */}
+      {tab==="roster"&&(
+        <div style={{marginTop:16}}>
+          <div className="input-row" style={{marginBottom:16}}>
+            <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addRoster()} placeholder="新增球員到資料庫..."/>
+            <button className="btn btn-primary" onClick={addRoster}>+新增</button>
+          </div>
+          {roster.length===0?<div style={{textAlign:"center",color:"#aaa",padding:40,fontSize:14}}>還沒有球員，新增球員到資料庫吧！</div>:(
+            <div>
+              <div style={{fontSize:13,color:"#888",marginBottom:8}}>共 {roster.length} 位球員</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[...roster].sort((a,b)=>(b.attendanceDates?.length||0)-(a.attendanceDates?.length||0)).map(r=>(
+                  <div key={r.name} style={{display:"flex",alignItems:"center",gap:8,background:ciNames.has(r.name)?"#e8f5e9":"#fff",border:ciNames.has(r.name)?"1.5px solid #4caf50":"1.5px solid #ddd",borderRadius:12,padding:"10px 14px"}}>
+                    <span style={{flex:1,fontWeight:600,fontSize:14}}>{r.name}</span>
+                    {ciNames.has(r.name)&&<span style={{fontSize:10,color:"#4caf50",fontWeight:700}}>已簽到</span>}
+                    <span style={{fontSize:11,background:"#e8f0ff",color:"#5c6bc0",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>📅 {r.attendanceDates?.length||0}次</span>
+                    <span style={{fontSize:11,background:"#fff3e0",color:"#e65100",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>🏅 裁{r.refereeCount||0}次</span>
+                    <span onClick={()=>{if(confirm(`刪除「${r.name}」？`))rmRoster(r.name)}} style={{width:20,height:20,borderRadius:"50%",background:"#eee",color:"#999",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,cursor:"pointer",flexShrink:0}}>×</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GAME */}
+      {tab==="game"&&(
+        <>
+          {roster.length>0&&(
+            <div style={{marginTop:16}}>
+              <SecTitle icon="📋" count={avail.length}>點選簽到</SecTitle>
+              {avail.length===0?<div style={{fontSize:13,color:"#aaa",padding:"8px 0"}}>所有球員都已簽到</div>:(
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {avail.map(r=><div key={r.name} className="checkin-btn" onClick={()=>checkin(r.name)}>+ {r.name}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="manual-box">
+            <div style={{fontSize:12,color:"#888",marginBottom:8,fontWeight:600}}>手動新增（臨打 / 優先球員）</div>
+            <div className="mode-toggle">
+              <button className="mode-btn" style={{background:addMode==="temp"?"#f5a623":"#f0f0f0",color:addMode==="temp"?"#fff":"#888"}} onClick={()=>setAddMode("temp")}>臨打球員</button>
+              <button className="mode-btn" style={{background:addMode==="priority"?"#4caf50":"#f0f0f0",color:addMode==="priority"?"#fff":"#888"}} onClick={()=>setAddMode("priority")}>優先球員</button>
+            </div>
+            <div className="input-row">
+              <input ref={iRef} value={nameInput} onChange={e=>setNameInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPlayer()} placeholder={addMode==="temp"?"臨打球員名字...":"優先球員名字..."} style={{borderColor:addMode==="temp"?"#f5a623":"#4caf50"}}/>
+              <button className="btn" style={{padding:"10px 14px",background:addMode==="temp"?"#f5a623":"#4caf50",color:"#fff",fontSize:14}} onClick={addPlayer}>+加入</button>
+            </div>
+          </div>
+
+          {showPP&&ppPlayer&&(
+            <div className="modal-overlay">
+              <div className="modal">
+                <h2>⚡ 優先插入順位</h2>
+                <p>「{ppPlayer.name}」要插入第幾個順位？</p>
+                <div className="hint">選擇 1~10，取代該順位，後面往後延</div>
+                <div className="pos-grid">
+                  {[1,2,3,4,5,6,7,8,9,10].map(n=><button key={n} className="pos-btn" onClick={()=>insertPri(n)}>{n}</button>)}
+                </div>
+                <button className="btn" style={{marginTop:16,padding:"10px 24px",background:"#eee",color:"#888",fontSize:13}} onClick={()=>{setShowPP(false);setPPPlayer(null)}}>取消</button>
+              </div>
+            </div>
+          )}
+
+          {allPlayers.length>0&&(
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+              <button className="btn" style={{background:editMode?"#ff4444":"transparent",color:editMode?"#fff":"#aaa",fontSize:12,padding:"4px 12px",border:editMode?"none":"1px solid #ddd"}} onClick={()=>setEditMode(!editMode)}>{editMode?"✓ 完成":"管理球員"}</button>
+            </div>
+          )}
+
+          {phase==="checkin"&&(
+            <>
+              {regsCI.length>0&&(<><SecTitle icon="✅" count={regsCI.length}>已簽到正式球員</SecTitle><div className="players-wrap">{regsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></>)}
+              {tempsCI.length>0&&(<><SecTitle icon="🔸" count={tempsCI.length}>臨打球員</SecTitle><div style={{background:"#fff8e1",borderRadius:12,padding:12,border:"1px dashed #f5a623"}}><div style={{fontSize:11,color:"#e65100",marginBottom:8,fontWeight:600}}>需等所有正式球員都上場過一次</div><div className="players-wrap">{tempsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`臨${i+1}`} small isTemp showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
+              {priCI.length>0&&(<><SecTitle icon="⚡" count={priCI.length}>優先球員</SecTitle><div style={{background:"#e8f5e9",borderRadius:12,padding:12,border:"1px solid #4caf50"}}><div className="players-wrap">{priCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`優${i+1}`} small isPriority showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
+              {regsCI.length>=10&&<button className="btn-start" onClick={startGame}>🎲 隨機分隊 · 開始比賽！</button>}
+              {regsCI.length>0&&regsCI.length<10&&<div className="notice">還需要 {10-regsCI.length} 位正式球員才能開始</div>}
+            </>
+          )}
+
+          {phase==="playing"&&(
+            <>
+              <div style={{marginTop:12}}>
+                <div className="team-card black">
+                  <div className="team-header">
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="team-name" style={{color:"#fff"}}>⬛ 黑隊</span>
+                      <span className={`role-tag ${atkColor==="black"?"attack":"defense"}`}>{atkColor==="black"?"⚔️ 攻擊":"🛡️ 防守"}</span>
+                    </div>
+                    <span style={{color:"#888",fontSize:12}}>連{blackCon}場</span>
+                  </div>
+                  <div className="players-wrap">{blackTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} dark isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                  {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#e94560"}} onClick={()=>reportWin("black")}>🏆 黑隊贏了</button>}
+                </div>
+                <div className="vs">— VS —</div>
+                <div className="team-card white">
+                  <div className="team-header">
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="team-name" style={{color:"#1a1a2e"}}>⬜ 白隊</span>
+                      <span className={`role-tag ${atkColor==="white"?"attack":"defense"}`}>{atkColor==="white"?"⚔️ 攻擊":"🛡️ 防守"}</span>
+                    </div>
+                    <span style={{color:"#888",fontSize:12}}>連{whiteCon}場</span>
+                  </div>
+                  <div className="players-wrap">{whiteTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                  {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#0f3460"}} onClick={()=>reportWin("white")}>🏆 白隊贏了</button>}
+                </div>
+              </div>
+
+              <SecTitle icon="⏳" count={waitQueue.length}>等候區</SecTitle>
+              {waitQueue.length===0?<div style={{textAlign:"center",color:"#aaa",fontSize:14,padding:16}}>目前沒有人在等候</div>:(
+                <div>
+                  {dutyCount>0&&(
+                    <div className="duty-box">
+                      <div style={{fontSize:11,color:"#555",marginBottom:8,fontWeight:600}}>📣 場邊任務（不上場）{dutyCount<3&&<span style={{marginLeft:6,color:"#e65100",fontSize:10}}>⚠️ 人數少，縮減任務</span>}</div>
+                      <div className="players-wrap">{waitQueue.slice(0,dutyCount).map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small isTemp={p.isTemp} isPriority={p.isPriority} role={qRole(i)} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                    </div>
+                  )}
+                  {waitQueue.length>dutyCount&&(()=>{const rest=waitQueue.slice(dutyCount);const gs=[];let lp=-1;rest.forEach((p,i)=>{const pr=getPriority(p);if(pr!==lp){gs.push({priority:pr,players:[]});lp=pr}gs[gs.length-1].players.push({...p,di:i+dutyCount+1})});return gs.map((g,gi)=><div key={gi} style={{marginBottom:6}}><PriLabel priority={g.priority}/><div className="players-wrap">{g.players.map(p=><Badge key={p.id} name={p.name} displayNum={p.di} small isTemp={p.isTemp} isPriority={p.isPriority} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div></div>)})()}
+                </div>
+              )}
+
+              <div style={{marginTop:24}}>
+                <button className="btn" style={{background:"transparent",color:"#888",fontSize:13,padding:"8px 0"}} onClick={()=>setShowLog(!showLog)}>{showLog?"▼":"▶"} 比賽記錄 ({log.length})</button>
+                {showLog&&(
+                  <div style={{background:"#fff",borderRadius:12,padding:12,maxHeight:350,overflowY:"auto",border:"1px solid #e8e8e8"}}>
+                    {log.map((e,i)=><div key={i} className="log-entry"><div style={{flex:1}}>{e.text}</div>{e.announcement&&<button className="speak-btn" onClick={()=>speak(e.announcement)}>🔊</button>}</div>)}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {history.length>0&&phase==="playing"&&<button className="undo-btn" onClick={undo}>↩ 復原</button>}
+          {allPlayers.length>0&&<button className="reset-btn" onClick={resetAll}>重置全部（保留資料庫）</button>}
+        </>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
+</script>
+</body>
+</html>
