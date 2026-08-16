@@ -9,12 +9,12 @@
 <meta name="description" content="籃球輪轉分隊系統">
 <title>🏀 籃球輪轉</title>
 <link rel="manifest" href="manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- fonts loaded from system -->
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'DM Sans',sans-serif;background:#fafafa;min-height:100vh;min-height:100dvh;overscroll-behavior:none}
-button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;-webkit-appearance:none}
-input{font-family:'DM Sans',sans-serif;-webkit-appearance:none}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#fafafa;min-height:100vh;min-height:100dvh;overscroll-behavior:none}
+button{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;cursor:pointer;border:none;-webkit-appearance:none}
+input{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;-webkit-appearance:none}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
 
@@ -87,6 +87,37 @@ input{font-family:'DM Sans',sans-serif;-webkit-appearance:none}
 .notice{text-align:center;margin-top:20px;padding:16px;background:#fff3e0;border-radius:12px;font-size:14px;color:#e65100;font-weight:600}
 .reset-btn{width:100%;padding:12px;margin-top:30px;background:transparent;color:#ccc;font-size:13px;border:1px solid #e8e8e8;border-radius:12px;font-weight:700}
 </style>
+
+<script>
+if('serviceWorker' in navigator){
+  // Inline service worker as blob
+  const swCode = `
+const CACHE = 'bball-v1';
+const URLS = [
+  self.location.pathname.replace('sw.js',''),
+  'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js',
+];
+self.addEventListener('install', e=>e.waitUntil(
+  caches.open(CACHE).then(c=>c.addAll(URLS)).then(()=>self.skipWaiting())
+));
+self.addEventListener('activate', e=>e.waitUntil(
+  caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+  .then(()=>self.clients.claim())
+));
+self.addEventListener('fetch', e=>e.respondWith(
+  caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+    if(res.ok){const c=res.clone();caches.open(CACHE).then(cache=>cache.put(e.request,c));}
+    return res;
+  }).catch(()=>new Response('Offline',{status:503})))
+));
+`;
+  const blob = new Blob([swCode], {type:'application/javascript'});
+  const url = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url, {scope: '/'}).catch(()=>{});
+}
+</script>
 </head>
 <body>
 <div id="app" class="container"></div>
