@@ -93,7 +93,10 @@ select,textarea{font-family:inherit;border:1.5px solid #ddd;border-radius:10px;p
 .form-grid .wide{grid-column:1/-1}
 .mini-btn{padding:7px 10px;border-radius:9px;background:#e8f0ff;color:#0f3460;font-size:12px;font-weight:700}
 .danger-mini{background:#ffebee;color:#c62828}
-.stat-row{display:grid;grid-template-columns:1fr repeat(4,48px);gap:5px;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
+.stat-row{display:grid;grid-template-columns:1fr repeat(4,66px);gap:5px;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
+.stat-cell{display:flex;align-items:center;justify-content:center;gap:2px;background:#eef3ff;border-radius:9px;padding:2px}
+.stat-cell button{width:20px;height:24px;border-radius:7px;font-weight:900;background:#fff;color:#0f3460}
+.case-image{width:100%;max-height:280px;object-fit:contain;border-radius:10px;background:#f5f5f5;margin-top:8px}
 .pill{display:inline-block;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:700}
 .timer{font-variant-numeric:tabular-nums;font-size:24px;font-weight:900;color:#e94560;text-align:center}
 .public-banner{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:12px;padding:10px;font-size:12px;margin-top:12px}
@@ -226,18 +229,21 @@ function App(){
   const[tournaments,setTournaments]=useState([]);
   const[announcements,setAnnouncements]=useState([]);
   const[noticeDraft,setNoticeDraft]=useState({title:"",body:"",url:""});
+  const[cases,setCases]=useState([]);
+  const[caseDraft,setCaseDraft]=useState({author:"",title:"",body:"",image:""});
+  const importRef=useRef(null);
   const iRef=useRef(null);
   const rRef=useRef(null);
 
   useEffect(()=>{
     try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0,refereeDates:[]};return{attendanceDates:[],refereeCount:0,refereeDates:[],...x};}))}}catch{}
     try{const sv=localStorage.getItem(SESSION_KEY);if(sv)setSessions(JSON.parse(sv))}catch{}
-    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[])}}catch{}
+    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[])}}catch{}
     if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
   },[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(roster))}catch{}},[roster]);
   useEffect(()=>{try{localStorage.setItem(SESSION_KEY,JSON.stringify(sessions))}catch{}},[sessions]);
-  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements]);
+  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:3,captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases]);
   useEffect(()=>{const id=setInterval(()=>setTaskNow(Date.now()),1000);return()=>clearInterval(id)},[]);
   useEffect(()=>{setTasks(ts=>ts.map(t=>t.active&&t.order.length&&taskNow-t.startedAt>=t.minutes*60000?{...t,index:(t.index+t.count)%t.order.length,startedAt:taskNow}:t))},[taskNow]);
   const selectedDateRef=useRef(selectedDate);
@@ -285,14 +291,18 @@ function App(){
   const calcAttendance=()=>{
     const today=new Date();const start=new Date(today);start.setDate(today.getDate()-((today.getDay()+6)%7));
     const recorded=[...Object.keys(sessions),...roster.flatMap(r=>r.attendanceDates||[])].sort()[0];const programStart=recorded?new Date(recorded+"T00:00:00"):start;programStart.setDate(programStart.getDate()-((programStart.getDay()+6)%7));
-    const points={};roster.forEach(r=>{points[r.name]=0;const joined=(r.attendanceDates||[]).map(x=>new Date(x+"T00:00:00"));for(let w=new Date(programStart);w<=start;w.setDate(w.getDate()+7)){const dates=[0,3].map(off=>{const d=new Date(w);d.setDate(d.getDate()+off);return d});const eligible=dates.filter(d=>d<=today&&!holidays.includes(d.toISOString().slice(0,10)));if(!eligible.length)continue;const attended=joined.some(d=>d>=eligible[0]&&d<=eligible[eligible.length-1]);if(!attended)points[r.name]++}});setAttendancePoints(points);
+    const points={};roster.forEach(r=>{points[r.name]=0;const joined=(r.attendanceDates||[]).map(x=>new Date(x+"T00:00:00"));for(let w=new Date(programStart);w<=start;w.setDate(w.getDate()+7)){const weekEnd=new Date(w);weekEnd.setDate(weekEnd.getDate()+6);const dates=[0,3].map(off=>{const d=new Date(w);d.setDate(d.getDate()+off);return d});const eligible=dates.filter(d=>d<=today&&!holidays.includes(d.toISOString().slice(0,10)));if(!eligible.length)continue;const attended=joined.some(d=>d>=eligible[0]&&d<=eligible[eligible.length-1]);const tournamentDay=tournaments.find(t=>{const d=new Date(t.date+"T00:00:00");return d>=w&&d<=weekEnd&&d<=today});const missedTournament=tournamentDay&&!(r.attendanceDates||[]).includes(tournamentDay.date);if(missedTournament)points[r.name]+=4;else if(!attended)points[r.name]+=1}});setAttendancePoints(points);
   };
   const publishNotice=()=>{if(!noticeDraft.title.trim())return;setAnnouncements(a=>[{id:Date.now(),date:new Date().toISOString(),...noticeDraft},...a]);setNoticeDraft({title:"",body:"",url:""})};
   const addTournament=()=>setTournaments(t=>[{id:Date.now(),date:selectedDate,name:`${selectedDate} 對抗賽`,teams:[1,2,3,4].map(n=>({name:`第${n}隊`,players:[]})),games:[]},...t]);
   const patchTournament=(id,fn)=>setTournaments(ts=>ts.map(t=>t.id===id?fn(t):t));
   const addTournamentGame=id=>patchTournament(id,t=>({...t,games:[...t.games,{id:Date.now(),a:0,b:1,scoreA:0,scoreB:0,stats:{}}]}));
-  const bumpStat=(tid,gid,name,key)=>patchTournament(tid,t=>({...t,games:t.games.map(g=>g.id===gid?{...g,stats:{...g.stats,[name]:{points:0,rebounds:0,assists:0,turnovers:0,...g.stats[name],[key]:(g.stats[name]?.[key]||0)+1}}}:g)}));
+  const changeStat=(tid,gid,name,key,delta)=>patchTournament(tid,t=>({...t,games:t.games.map(g=>g.id===gid?{...g,stats:{...g.stats,[name]:{points:0,rebounds:0,assists:0,turnovers:0,...g.stats[name],[key]:Math.max(0,(g.stats[name]?.[key]||0)+delta)}}}:g)}));
   const teamCaptain=team=>[...captains.tier1,...captains.tier2,...captains.tier3].find(n=>team.some(p=>p.name===n));
+  const resizeCaseImage=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,900/img.width,900/img.height);const c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);setCaseDraft(d=>({...d,image:c.toDataURL("image/jpeg",.72)}))};img.src=rd.result};rd.readAsDataURL(file)};
+  const addCase=()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;setCases(x=>[{...caseDraft,id:Date.now(),date:new Date().toISOString()},...x]);setCaseDraft({author:"",title:"",body:"",image:""})};
+  const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
+  const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
 
   const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
   const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(dutyCount>=3)return i<=1?"裁判":"記錄台";if(dutyCount===2)return i===0?"裁判":"計分";return"裁判";};
@@ -313,6 +323,7 @@ function App(){
           <button className={`tab-btn ${tab==="roster"?"active":"inactive"}`} onClick={()=>setTab("roster")}>📒 資料庫</button>
           <button className={`tab-btn ${tab==="duty"?"active":"inactive"}`} onClick={()=>setTab("duty")}>📣 職務</button>
           <button className={`tab-btn ${tab==="tournament"?"active":"inactive"}`} onClick={()=>setTab("tournament")}>🏆 對抗賽</button>
+          <button className={`tab-btn ${tab==="cases"?"active":"inactive"}`} onClick={()=>setTab("cases")}>📚 判例</button>
           <button className={`tab-btn ${tab==="notice"?"active":"inactive"}`} onClick={()=>setTab("notice")}>📢 公告</button>
         </div>
       </div>
@@ -416,8 +427,15 @@ function App(){
           <div style={{display:"flex",gap:8,alignItems:"center"}}><input style={{flex:1,fontWeight:800}} value={t.name} onChange={e=>patchTournament(t.id,x=>({...x,name:e.target.value}))}/><button className="mini-btn danger-mini" onClick={()=>setTournaments(x=>x.filter(v=>v.id!==t.id))}>刪除</button></div>
           {t.teams.map((team,ti)=><div key={ti} style={{marginTop:12,padding:10,background:"#f7f7f7",borderRadius:10}}><input value={team.name} onChange={e=>patchTournament(t.id,x=>({...x,teams:x.teams.map((z,i)=>i===ti?{...z,name:e.target.value}:z)}))}/><div className="players-wrap" style={{marginTop:7}}>{roster.map(r=><button key={r.name} className="mini-btn" style={{background:team.players.includes(r.name)?"#0f3460":"#fff",color:team.players.includes(r.name)?"#fff":"#555"}} onClick={()=>patchTournament(t.id,x=>({...x,teams:x.teams.map((z,i)=>i===ti?{...z,players:z.players.includes(r.name)?z.players.filter(n=>n!==r.name):[...z.players,r.name]}:z)}))}>{r.name}</button>)}</div></div>)}
           <button className="mini-btn" style={{width:"100%",marginTop:10}} onClick={()=>addTournamentGame(t.id)}>＋ 新增賽事</button>
-          {t.games.map((g,gi)=>{const players=[...(t.teams[g.a]?.players||[]),...(t.teams[g.b]?.players||[])];return <div key={g.id} style={{marginTop:12,borderTop:"2px solid #eee",paddingTop:10}}><div style={{display:"flex",gap:5,alignItems:"center"}}><select value={g.a} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,a:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option value={i}>{x.name}</option>)}</select><input type="number" value={g.scoreA} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreA:+e.target.value}:z)}))}/><b>：</b><input type="number" value={g.scoreB} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreB:+e.target.value}:z)}))}/><select value={g.b} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,b:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option value={i}>{x.name}</option>)}</select></div><div className="stat-row" style={{fontWeight:700,color:"#888"}}><span>球員</span><span>得分</span><span>籃板</span><span>助攻</span><span>失誤</span></div>{players.map(n=><div className="stat-row" key={n}><b>{n}</b>{[["points","分"],["rebounds","板"],["assists","助"],["turnovers","誤"]].map(([k,l])=><button className="mini-btn" onClick={()=>bumpStat(t.id,g.id,n,k)}>{g.stats[n]?.[k]||0} {l}</button>)}</div>)}</div>})}
+          {t.games.map((g,gi)=>{const players=[...(t.teams[g.a]?.players||[]),...(t.teams[g.b]?.players||[])];return <div key={g.id} style={{marginTop:12,borderTop:"2px solid #eee",paddingTop:10}}><div style={{display:"flex",gap:5,alignItems:"center"}}><select value={g.a} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,a:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option key={i} value={i}>{x.name}</option>)}</select><input type="number" value={g.scoreA} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreA:+e.target.value}:z)}))}/><b>：</b><input type="number" value={g.scoreB} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreB:+e.target.value}:z)}))}/><select value={g.b} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,b:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option key={i} value={i}>{x.name}</option>)}</select></div><div className="stat-row" style={{fontWeight:700,color:"#888"}}><span>球員</span><span>得分</span><span>籃板</span><span>助攻</span><span>失誤</span></div>{players.map(n=><div className="stat-row" key={n}><b>{n}</b>{[["points","分"],["rebounds","板"],["assists","助"],["turnovers","誤"]].map(([k,l])=><div className="stat-cell" key={k}><button onClick={()=>changeStat(t.id,g.id,n,k,-1)}>−</button><span onClick={()=>changeStat(t.id,g.id,n,k,1)} style={{minWidth:18,textAlign:"center",fontWeight:800,cursor:"pointer"}}>{g.stats[n]?.[k]||0}</span><button onClick={()=>changeStat(t.id,g.id,n,k,1)}>＋</button></div>)}</div>)}</div>})}
         </div>)}
+      </div>}
+
+      {/* PLAYER CASES */}
+      {tab==="cases"&&<div>
+        <div className="panel"><div className="panel-title">📚 球員判例交流</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>球員可記錄籃球規則、爭議動作與自己的判斷，並附上圖片。</p><div className="form-grid"><input placeholder="球員姓名" value={caseDraft.author} onChange={e=>setCaseDraft(d=>({...d,author:e.target.value}))}/><input placeholder="判例標題" value={caseDraft.title} onChange={e=>setCaseDraft(d=>({...d,title:e.target.value}))}/><textarea className="wide" rows="4" placeholder="情境、判決與理由" value={caseDraft.body} onChange={e=>setCaseDraft(d=>({...d,body:e.target.value}))}/><label className="wide" style={{fontSize:12,color:"#666"}}>附加圖片<input type="file" accept="image/*" onChange={e=>resizeCaseImage(e.target.files?.[0])} style={{width:"100%",marginTop:5}}/></label>{caseDraft.image&&<img className="case-image wide" src={caseDraft.image}/>}<button className="btn btn-primary wide" onClick={addCase}>送出判例</button></div></div>
+        <div className="public-banner">目前投稿保存在投稿者自己的瀏覽器。要讓所有球員共同查看與編輯圖片，需要接上 Supabase Storage 與球員登入權限。</div>
+        {cases.map(c=><div className="panel" key={c.id}><div style={{display:"flex",gap:8}}><b style={{flex:1}}>{c.title}</b><button className="mini-btn danger-mini" onClick={()=>setCases(x=>x.filter(v=>v.id!==c.id))}>刪除</button></div><div style={{fontSize:11,color:"#888",marginTop:4}}>{c.author} · {new Date(c.date).toLocaleString("zh-TW")}</div><div style={{whiteSpace:"pre-wrap",lineHeight:1.6,marginTop:8}}>{c.body}</div>{c.image&&<img className="case-image" src={c.image}/>}</div>)}
       </div>}
 
       {/* ANNOUNCEMENTS */}
@@ -430,6 +448,7 @@ function App(){
       {/* ROSTER */}
       {tab==="roster"&&(
         <div style={{marginTop:16}}>
+          <div className="panel" style={{marginTop:0}}><div className="panel-title">💾 資料保留與移轉</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>同一網址更新版本會保留瀏覽器資料；仍建議定期下載備份，換手機或清除瀏覽器資料後可匯入。</p><div style={{display:"flex",gap:8}}><button className="mini-btn" style={{flex:1}} onClick={exportData}>下載完整備份</button><button className="mini-btn" style={{flex:1}} onClick={()=>importRef.current?.click()}>匯入備份</button><input ref={importRef} type="file" accept="application/json" style={{display:"none"}} onChange={e=>importData(e.target.files?.[0])}/></div></div>
           <div className="input-row" style={{marginBottom:16}}>
             <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addRoster()} placeholder="新增球員到資料庫..."/>
             <button className="btn btn-primary" onClick={addRoster}>+新增</button>
@@ -444,6 +463,7 @@ function App(){
                     {ciNames.has(r.name)&&<span style={{fontSize:10,color:"#4caf50",fontWeight:700}}>已簽到</span>}
                     <span style={{fontSize:11,background:"#e8f0ff",color:"#5c6bc0",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>📅 {r.attendanceDates?.length||0}次</span>
                     <span style={{fontSize:11,background:"#fff3e0",color:"#e65100",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>🏅 裁{r.refereeCount||0}次</span>
+                    <span style={{fontSize:11,background:(attendancePoints[r.name]||0)>0?"#ffebee":"#e8f5e9",color:(attendancePoints[r.name]||0)>0?"#c62828":"#2e7d32",borderRadius:10,padding:"3px 8px",fontWeight:800,whiteSpace:"nowrap"}}>點數 {attendancePoints[r.name]||0}</span>
                     <span onClick={()=>{if(confirm(`刪除「${r.name}」？`))rmRoster(r.name)}} style={{width:20,height:20,borderRadius:"50%",background:"#eee",color:"#999",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,cursor:"pointer",flexShrink:0}}>×</span>
                   </div>
                 ))}
@@ -501,9 +521,9 @@ function App(){
 
           {phase==="checkin"&&(
             <>
-              {regsCI.length>0&&(<><SecTitle icon="✅" count={regsCI.length}>已簽到正式球員</SecTitle><div className="players-wrap">{regsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></>)}
-              {tempsCI.length>0&&(<><SecTitle icon="🔸" count={tempsCI.length}>臨打球員</SecTitle><div style={{background:"#fff8e1",borderRadius:12,padding:12,border:"1px dashed #f5a623"}}><div style={{fontSize:11,color:"#e65100",marginBottom:8,fontWeight:600}}>需等所有正式球員都上場過一次</div><div className="players-wrap">{tempsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`臨${i+1}`} small isTemp showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
-              {priCI.length>0&&(<><SecTitle icon="⚡" count={priCI.length}>優先球員</SecTitle><div style={{background:"#e8f5e9",borderRadius:12,padding:12,border:"1px solid #4caf50"}}><div className="players-wrap">{priCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`優${i+1}`} small isPriority showRemove={editMode} onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
+              {regsCI.length>0&&(<><SecTitle icon="✅" count={regsCI.length}>已簽到正式球員</SecTitle><div className="players-wrap">{regsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small showRemove onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></>)}
+              {tempsCI.length>0&&(<><SecTitle icon="🔸" count={tempsCI.length}>臨打球員</SecTitle><div style={{background:"#fff8e1",borderRadius:12,padding:12,border:"1px dashed #f5a623"}}><div style={{fontSize:11,color:"#e65100",marginBottom:8,fontWeight:600}}>需等所有正式球員都上場過一次</div><div className="players-wrap">{tempsCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`臨${i+1}`} small isTemp showRemove onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
+              {priCI.length>0&&(<><SecTitle icon="⚡" count={priCI.length}>優先球員</SecTitle><div style={{background:"#e8f5e9",borderRadius:12,padding:12,border:"1px solid #4caf50"}}><div className="players-wrap">{priCI.map((p,i)=><Badge key={p.id} name={p.name} displayNum={`優${i+1}`} small isPriority showRemove onRemove={()=>rmPlayer(p.id)} totalGamesPlayed={0}/>)}</div></div></>)}
               {regsCI.length>=10&&<button className="btn-start" onClick={startGame}>🎲 隨機分隊 · 開始比賽！</button>}
               {regsCI.length>0&&regsCI.length<10&&<div className="notice">還需要 {10-regsCI.length} 位正式球員才能開始</div>}
             </>
@@ -521,7 +541,7 @@ function App(){
                     <span style={{color:"#888",fontSize:12}}>連{blackCon}場</span>
                   </div>
                   <div style={{fontSize:11,color:"#f5a623",marginBottom:8}}>隊長：{teamCaptain(blackTeam)||"未指定"}</div>
-                  <div className="players-wrap">{blackTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} dark isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                  <div className="players-wrap">{blackTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} dark isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove onRemove={()=>rmPlayer(p.id)}/>)}</div>
                   {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#e94560"}} onClick={()=>reportWin("black")}>🏆 黑隊贏了</button>}
                 </div>
                 <div className="vs">— VS —</div>
@@ -534,7 +554,7 @@ function App(){
                     <span style={{color:"#888",fontSize:12}}>連{whiteCon}場</span>
                   </div>
                   <div style={{fontSize:11,color:"#b7791f",marginBottom:8}}>隊長：{teamCaptain(whiteTeam)||"未指定"}</div>
-                  <div className="players-wrap">{whiteTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                  <div className="players-wrap">{whiteTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove onRemove={()=>rmPlayer(p.id)}/>)}</div>
                   {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#0f3460"}} onClick={()=>reportWin("white")}>🏆 白隊贏了</button>}
                 </div>
               </div>
@@ -545,10 +565,10 @@ function App(){
                   {dutyCount>0&&(
                     <div className="duty-box">
                       <div style={{fontSize:11,color:"#555",marginBottom:8,fontWeight:600}}>📣 場邊任務（不上場）{dutyCount<3&&<span style={{marginLeft:6,color:"#e65100",fontSize:10}}>⚠️ 人數少，縮減任務</span>}</div>
-                      <div className="players-wrap">{waitQueue.slice(0,dutyCount).map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small isTemp={p.isTemp} isPriority={p.isPriority} role={qRole(i)} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
+                      <div className="players-wrap">{waitQueue.slice(0,dutyCount).map((p,i)=><Badge key={p.id} name={p.name} displayNum={i+1} small isTemp={p.isTemp} isPriority={p.isPriority} role={qRole(i)} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove onRemove={()=>rmPlayer(p.id)}/>)}</div>
                     </div>
                   )}
-                  {waitQueue.length>dutyCount&&(()=>{const rest=waitQueue.slice(dutyCount);const gs=[];let lp=-1;rest.forEach((p,i)=>{const pr=getPriority(p);if(pr!==lp){gs.push({priority:pr,players:[]});lp=pr}gs[gs.length-1].players.push({...p,di:i+dutyCount+1})});return gs.map((g,gi)=><div key={gi} style={{marginBottom:6}}><PriLabel priority={g.priority}/><div className="players-wrap">{g.players.map(p=><Badge key={p.id} name={p.name} displayNum={p.di} small isTemp={p.isTemp} isPriority={p.isPriority} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div></div>)})()}
+                  {waitQueue.length>dutyCount&&(()=>{const rest=waitQueue.slice(dutyCount);const gs=[];let lp=-1;rest.forEach((p,i)=>{const pr=getPriority(p);if(pr!==lp){gs.push({priority:pr,players:[]});lp=pr}gs[gs.length-1].players.push({...p,di:i+dutyCount+1})});return gs.map((g,gi)=><div key={gi} style={{marginBottom:6}}><PriLabel priority={g.priority}/><div className="players-wrap">{g.players.map(p=><Badge key={p.id} name={p.name} displayNum={p.di} small isTemp={p.isTemp} isPriority={p.isPriority} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove onRemove={()=>rmPlayer(p.id)}/>)}</div></div>)})()}
                 </div>
               )}
 
