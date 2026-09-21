@@ -15,6 +15,7 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#fafafa;min-height:100vh;min-height:100dvh;overscroll-behavior:none}
 button{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;cursor:pointer;border:none;-webkit-appearance:none}
 input{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;-webkit-appearance:none}
+select,textarea{font-family:inherit;border:1.5px solid #ddd;border-radius:10px;padding:9px;background:#fff;font-size:14px}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
 
@@ -22,8 +23,8 @@ input{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',A
 .header{text-align:center;padding:24px 0 8px;position:sticky;top:0;background:#fafafa;z-index:10;border-bottom:1px solid #e8e8e8}
 .header h1{font-size:22px;font-weight:800;color:#1a1a2e;letter-spacing:1px}
 .header .sub{font-size:12px;color:#888;margin-top:2px}
-.tab-bar{display:flex;gap:0;margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #ddd}
-.tab-btn{flex:1;padding:10px;font-size:13px;font-weight:700;border-radius:0;transition:all .15s}
+.tab-bar{display:flex;gap:0;margin-top:12px;border-radius:10px;overflow-x:auto;border:1px solid #ddd}
+.tab-btn{flex:1 0 auto;padding:10px;font-size:12px;font-weight:700;border-radius:0;transition:all .15s}
 .tab-btn.active{background:#0f3460;color:#fff}
 .tab-btn.inactive{background:#f5f5f5;color:#888}
 
@@ -86,6 +87,16 @@ input{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',A
 .manual-box{margin-top:16px;background:#fff;border-radius:14px;padding:14px;border:1px solid #eee}
 .notice{text-align:center;margin-top:20px;padding:16px;background:#fff3e0;border-radius:12px;font-size:14px;color:#e65100;font-weight:600}
 .reset-btn{width:100%;padding:12px;margin-top:30px;background:transparent;color:#ccc;font-size:13px;border:1px solid #e8e8e8;border-radius:12px;font-weight:700}
+.panel{margin-top:14px;background:#fff;border:1px solid #e8e8e8;border-radius:14px;padding:14px}
+.panel-title{font-size:15px;font-weight:800;color:#1a1a2e;margin-bottom:10px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form-grid .wide{grid-column:1/-1}
+.mini-btn{padding:7px 10px;border-radius:9px;background:#e8f0ff;color:#0f3460;font-size:12px;font-weight:700}
+.danger-mini{background:#ffebee;color:#c62828}
+.stat-row{display:grid;grid-template-columns:1fr repeat(4,48px);gap:5px;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
+.pill{display:inline-block;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:700}
+.timer{font-variant-numeric:tabular-nums;font-size:24px;font-weight:900;color:#e94560;text-align:center}
+.public-banner{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:12px;padding:10px;font-size:12px;margin-top:12px}
 </style>
 
 <script>
@@ -129,6 +140,7 @@ const { useState, useCallback, useRef, useEffect } = React;
 const TEAM_SIZE = 5;
 const STORAGE_KEY = "bball_roster_v4";
 const SESSION_KEY = "bball_sessions_v1";
+const ADMIN_KEY = "bball_admin_v2";
 
 function shuffle(arr) {
   const a = [...arr];
@@ -204,21 +216,35 @@ function App(){
   const[sessions,setSessions]=useState({});
   const[selectedDate,setSelectedDate]=useState(()=>new Date().toISOString().slice(0,10));
   const[calMonth,setCalMonth]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}});
+  const[captains,setCaptains]=useState({tier1:[],tier2:[],tier3:[]});
+  const[refereeGroup,setRefereeGroup]=useState([]);
+  const[tasks,setTasks]=useState([]);
+  const[taskDraft,setTaskDraft]=useState({name:"",count:1,minutes:10,order:[]});
+  const[taskNow,setTaskNow]=useState(Date.now());
+  const[attendancePoints,setAttendancePoints]=useState({});
+  const[holidays,setHolidays]=useState([]);
+  const[tournaments,setTournaments]=useState([]);
+  const[announcements,setAnnouncements]=useState([]);
+  const[noticeDraft,setNoticeDraft]=useState({title:"",body:"",url:""});
   const iRef=useRef(null);
   const rRef=useRef(null);
 
   useEffect(()=>{
-    try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0};return{attendanceDates:[],refereeCount:0,...x};}))}}catch{}
+    try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0,refereeDates:[]};return{attendanceDates:[],refereeCount:0,refereeDates:[],...x};}))}}catch{}
     try{const sv=localStorage.getItem(SESSION_KEY);if(sv)setSessions(JSON.parse(sv))}catch{}
+    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[])}}catch{}
     if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
   },[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(roster))}catch{}},[roster]);
   useEffect(()=>{try{localStorage.setItem(SESSION_KEY,JSON.stringify(sessions))}catch{}},[sessions]);
+  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements]);
+  useEffect(()=>{const id=setInterval(()=>setTaskNow(Date.now()),1000);return()=>clearInterval(id)},[]);
+  useEffect(()=>{setTasks(ts=>ts.map(t=>t.active&&t.order.length&&taskNow-t.startedAt>=t.minutes*60000?{...t,index:(t.index+t.count)%t.order.length,startedAt:taskNow}:t))},[taskNow]);
   const selectedDateRef=useRef(selectedDate);
   useEffect(()=>{selectedDateRef.current=selectedDate;},[selectedDate]);
   useEffect(()=>{const sd=selectedDateRef.current;if(!sd)return;setSessions(prev=>({...prev,[sd]:{allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter}}));},[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase]);
 
-  const addRoster=useCallback(()=>{const t=rosterInput.trim();if(!t||roster.some(x=>x.name===t))return;setRoster(p=>[...p,{name:t,attendanceDates:[],refereeCount:0}]);setRosterInput("");playBeep(880,.08);setTimeout(()=>rRef.current?.focus(),50)},[rosterInput,roster]);
+  const addRoster=useCallback(()=>{const t=rosterInput.trim();if(!t||roster.some(x=>x.name===t))return;setRoster(p=>[...p,{name:t,attendanceDates:[],refereeCount:0,refereeDates:[]}]);setRosterInput("");playBeep(880,.08);setTimeout(()=>rRef.current?.focus(),50)},[rosterInput,roster]);
   const rmRoster=n=>setRoster(p=>p.filter(x=>x.name!==n));
 
   const checkin=useCallback(name=>{if(allPlayers.some(p=>p.name===name))return;const pl={name,id:nextId,isTemp:false,isPriority:false,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:queueCounter};setAllPlayers(p=>[...p,pl]);if(phase==="playing")setWaitQueue(p=>sortQueue([...p,pl]));setRoster(r=>r.map(x=>x.name===name?{...x,attendanceDates:x.attendanceDates.includes(selectedDate)?x.attendanceDates:[...x.attendanceDates,selectedDate]}:x));setNextId(n=>n+1);setQueueCounter(n=>n+1);playBeep(880,.08)},[allPlayers,nextId,queueCounter,phase,selectedDate]);
@@ -246,6 +272,28 @@ function App(){
   const switchToDate=useCallback((date)=>{if(date===selectedDate)return;setSelectedDate(date);const saved=sessions[date];if(saved){applyGameState(saved);}else{setAllPlayers([]);setBlackTeam([]);setWhiteTeam([]);setWaitQueue([]);setBlackCon(0);setWhiteCon(0);setAtkColor("white");setGameCount(0);setLog([]);setPhase("checkin");setNextId(1);setQueueCounter(1);setHistory([]);setEditMode(false);setNameInput("");setAddMode("temp");}},[selectedDate,sessions]);
   const resetAll=()=>{if(!confirm("確定要重置？（資料庫保留）"))return;setAllPlayers([]);setBlackTeam([]);setWhiteTeam([]);setWaitQueue([]);setBlackCon(0);setWhiteCon(0);setAtkColor("white");setGameCount(0);setLog([]);setPhase("checkin");setNextId(1);setQueueCounter(1);setNameInput("");setEditMode(false);setHistory([]);setAddMode("temp")};
 
+  const toggleNamed=(list,setter,name,limit)=>setter(list.includes(name)?list.filter(x=>x!==name):list.length<limit?[...list,name]:list);
+  const setCaptainTier=(tier,name)=>setCaptains(c=>{
+    const clean={tier1:c.tier1.filter(x=>x!==name),tier2:c.tier2.filter(x=>x!==name),tier3:c.tier3.filter(x=>x!==name)};
+    if(tier!=="none"&&clean[tier].length<4)clean[tier]=[...clean[tier],name];
+    return clean;
+  });
+  const captainTierOf=name=>captains.tier1.includes(name)?"tier1":captains.tier2.includes(name)?"tier2":captains.tier3.includes(name)?"tier3":"none";
+  const addTask=()=>{if(!taskDraft.name.trim()||taskDraft.order.length===0)return;setTasks(t=>[...t,{id:Date.now(),name:taskDraft.name.trim(),count:Math.max(1,+taskDraft.count||1),minutes:Math.max(1,+taskDraft.minutes||1),order:taskDraft.order,index:0,startedAt:Date.now(),active:true}]);setTaskDraft({name:"",count:1,minutes:10,order:[]})};
+  const rotateTask=id=>setTasks(ts=>ts.map(t=>t.id===id?{...t,index:(t.index+t.count)%t.order.length,startedAt:Date.now(),active:true}:t));
+  const taskPeople=t=>Array.from({length:Math.min(t.count,t.order.length)},(_,i)=>t.order[(t.index+i)%t.order.length]);
+  const calcAttendance=()=>{
+    const today=new Date();const start=new Date(today);start.setDate(today.getDate()-((today.getDay()+6)%7));
+    const recorded=[...Object.keys(sessions),...roster.flatMap(r=>r.attendanceDates||[])].sort()[0];const programStart=recorded?new Date(recorded+"T00:00:00"):start;programStart.setDate(programStart.getDate()-((programStart.getDay()+6)%7));
+    const points={};roster.forEach(r=>{points[r.name]=0;const joined=(r.attendanceDates||[]).map(x=>new Date(x+"T00:00:00"));for(let w=new Date(programStart);w<=start;w.setDate(w.getDate()+7)){const dates=[0,3].map(off=>{const d=new Date(w);d.setDate(d.getDate()+off);return d});const eligible=dates.filter(d=>d<=today&&!holidays.includes(d.toISOString().slice(0,10)));if(!eligible.length)continue;const attended=joined.some(d=>d>=eligible[0]&&d<=eligible[eligible.length-1]);if(!attended)points[r.name]++}});setAttendancePoints(points);
+  };
+  const publishNotice=()=>{if(!noticeDraft.title.trim())return;setAnnouncements(a=>[{id:Date.now(),date:new Date().toISOString(),...noticeDraft},...a]);setNoticeDraft({title:"",body:"",url:""})};
+  const addTournament=()=>setTournaments(t=>[{id:Date.now(),date:selectedDate,name:`${selectedDate} 對抗賽`,teams:[1,2,3,4].map(n=>({name:`第${n}隊`,players:[]})),games:[]},...t]);
+  const patchTournament=(id,fn)=>setTournaments(ts=>ts.map(t=>t.id===id?fn(t):t));
+  const addTournamentGame=id=>patchTournament(id,t=>({...t,games:[...t.games,{id:Date.now(),a:0,b:1,scoreA:0,scoreB:0,stats:{}}]}));
+  const bumpStat=(tid,gid,name,key)=>patchTournament(tid,t=>({...t,games:t.games.map(g=>g.id===gid?{...g,stats:{...g.stats,[name]:{points:0,rebounds:0,assists:0,turnovers:0,...g.stats[name],[key]:(g.stats[name]?.[key]||0)+1}}}:g)}));
+  const teamCaptain=team=>[...captains.tier1,...captains.tier2,...captains.tier3].find(n=>team.some(p=>p.name===n));
+
   const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
   const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(dutyCount>=3)return i<=1?"裁判":"記錄台";if(dutyCount===2)return i===0?"裁判":"計分";return"裁判";};
   const regsCI=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);
@@ -263,6 +311,9 @@ function App(){
           <button className={`tab-btn ${tab==="game"?"active":"inactive"}`} onClick={()=>setTab("game")}>⚡ 比賽</button>
           <button className={`tab-btn ${tab==="calendar"?"active":"inactive"}`} onClick={()=>setTab("calendar")}>📅 日歷</button>
           <button className={`tab-btn ${tab==="roster"?"active":"inactive"}`} onClick={()=>setTab("roster")}>📒 資料庫</button>
+          <button className={`tab-btn ${tab==="duty"?"active":"inactive"}`} onClick={()=>setTab("duty")}>📣 職務</button>
+          <button className={`tab-btn ${tab==="tournament"?"active":"inactive"}`} onClick={()=>setTab("tournament")}>🏆 對抗賽</button>
+          <button className={`tab-btn ${tab==="notice"?"active":"inactive"}`} onClick={()=>setTab("notice")}>📢 公告</button>
         </div>
       </div>
 
@@ -323,6 +374,58 @@ function App(){
           </div>
         );
       })()}
+
+      {/* DUTY / ADMIN */}
+      {tab==="duty"&&(
+        <div>
+          <div className="panel">
+            <div className="panel-title">🎖️ 隊長順位（每級最多 4 人）</div>
+            {roster.map(r=><div key={r.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #f3f3f3"}}><span style={{flex:1,fontWeight:600}}>{r.name}</span><select value={captainTierOf(r.name)} onChange={e=>setCaptainTier(e.target.value,r.name)}><option value="none">非隊長</option><option value="tier1">第一順位</option><option value="tier2">第二順位</option><option value="tier3">第三順位</option></select></div>)}
+            <div style={{fontSize:11,color:"#888",marginTop:8}}>第一順位：四隊固定隊長；第二、第三順位各 4 人，之後可依歷史資料自動排序。</div>
+          </div>
+          <div className="panel">
+            <div className="panel-title">🦓 固定裁判團（5 位）</div>
+            <div className="players-wrap">{roster.map(r=><button key={r.name} className="mini-btn" style={{background:refereeGroup.includes(r.name)?"#f5a623":"#f3f3f3",color:refereeGroup.includes(r.name)?"#fff":"#555"}} onClick={()=>toggleNamed(refereeGroup,setRefereeGroup,r.name,5)}>{r.name}</button>)}</div>
+            <div style={{fontSize:12,color:"#666",marginTop:10}}>已選 {refereeGroup.length}/5：{refereeGroup.join("、")||"尚未選擇"}。名單會記憶，不隨每場重排。</div>
+          </div>
+          <div className="panel">
+            <div className="panel-title">🔁 任務輪流表</div>
+            <div className="form-grid">
+              <input className="wide" value={taskDraft.name} onChange={e=>setTaskDraft(d=>({...d,name:e.target.value}))} placeholder="任務名稱，例如：計分台、拍攝、收球"/>
+              <label>每輪人數<input type="number" min="1" value={taskDraft.count} onChange={e=>setTaskDraft(d=>({...d,count:e.target.value}))} style={{width:"100%"}}/></label>
+              <label>輪流分鐘<input type="number" min="1" value={taskDraft.minutes} onChange={e=>setTaskDraft(d=>({...d,minutes:e.target.value}))} style={{width:"100%"}}/></label>
+              <div className="wide"><div style={{fontSize:12,color:"#666",marginBottom:6}}>依點選先後建立人員順序</div><div className="players-wrap">{roster.map(r=><button key={r.name} className="mini-btn" style={{background:taskDraft.order.includes(r.name)?"#0f3460":"#eee",color:taskDraft.order.includes(r.name)?"#fff":"#555"}} onClick={()=>setTaskDraft(d=>({...d,order:d.order.includes(r.name)?d.order.filter(x=>x!==r.name):[...d.order,r.name]}))}>{taskDraft.order.includes(r.name)?`${taskDraft.order.indexOf(r.name)+1}. `:""}{r.name}</button>)}</div></div>
+              <button className="btn btn-primary wide" onClick={addTask}>＋ 新增任務</button>
+            </div>
+            {tasks.map(t=>{const remain=Math.max(0,t.minutes*60-Math.floor((taskNow-t.startedAt)/1000));return <div key={t.id} style={{marginTop:12,padding:12,background:"#f7f9ff",borderRadius:12}}><div style={{display:"flex",alignItems:"center",gap:8}}><b style={{flex:1}}>{t.name}</b><button className="mini-btn" onClick={()=>rotateTask(t.id)}>立即換人</button><button className="mini-btn danger-mini" onClick={()=>setTasks(x=>x.filter(v=>v.id!==t.id))}>刪除</button></div><div style={{margin:"8px 0",fontSize:14}}>目前：<b>{taskPeople(t).join("、")}</b></div><div className="timer">{String(Math.floor(remain/60)).padStart(2,"0")}:{String(remain%60).padStart(2,"0")}</div>{remain===0&&<button className="btn btn-danger" style={{width:"100%",padding:10,marginTop:6}} onClick={()=>rotateTask(t.id)}>⏰ 時間到，更換人員</button>}</div>})}
+          </div>
+          <div className="panel">
+            <div className="panel-title">📊 出席率記點</div>
+            <p style={{fontSize:12,color:"#666",lineHeight:1.6}}>每週週一或週四至少出席一次；列入假日清單的日期不計。按下重算後產生截至本週的缺席點數。</p>
+            <div style={{display:"flex",gap:8,margin:"9px 0"}}><input style={{flex:1}} type="date" onChange={e=>e.target.value&&setHolidays(h=>h.includes(e.target.value)?h:[...h,e.target.value])}/><button className="mini-btn" onClick={calcAttendance}>重算點數</button></div>
+            {holidays.length>0&&<div style={{fontSize:11,color:"#888",marginBottom:8}}>假日：{holidays.sort().join("、")}</div>}
+            {roster.map(r=><div key={r.name} style={{display:"flex",padding:"7px 0",borderBottom:"1px solid #f2f2f2"}}><span style={{flex:1}}>{r.name}</span><b style={{color:(attendancePoints[r.name]||0)>0?"#e94560":"#2e7d32"}}>{attendancePoints[r.name]||0} 點</b></div>)}
+          </div>
+        </div>
+      )}
+
+      {/* TOURNAMENT */}
+      {tab==="tournament"&&<div>
+        <button className="btn-start" onClick={addTournament}>＋ 建立四隊對抗賽</button>
+        {tournaments.map(t=><div className="panel" key={t.id}>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}><input style={{flex:1,fontWeight:800}} value={t.name} onChange={e=>patchTournament(t.id,x=>({...x,name:e.target.value}))}/><button className="mini-btn danger-mini" onClick={()=>setTournaments(x=>x.filter(v=>v.id!==t.id))}>刪除</button></div>
+          {t.teams.map((team,ti)=><div key={ti} style={{marginTop:12,padding:10,background:"#f7f7f7",borderRadius:10}}><input value={team.name} onChange={e=>patchTournament(t.id,x=>({...x,teams:x.teams.map((z,i)=>i===ti?{...z,name:e.target.value}:z)}))}/><div className="players-wrap" style={{marginTop:7}}>{roster.map(r=><button key={r.name} className="mini-btn" style={{background:team.players.includes(r.name)?"#0f3460":"#fff",color:team.players.includes(r.name)?"#fff":"#555"}} onClick={()=>patchTournament(t.id,x=>({...x,teams:x.teams.map((z,i)=>i===ti?{...z,players:z.players.includes(r.name)?z.players.filter(n=>n!==r.name):[...z.players,r.name]}:z)}))}>{r.name}</button>)}</div></div>)}
+          <button className="mini-btn" style={{width:"100%",marginTop:10}} onClick={()=>addTournamentGame(t.id)}>＋ 新增賽事</button>
+          {t.games.map((g,gi)=>{const players=[...(t.teams[g.a]?.players||[]),...(t.teams[g.b]?.players||[])];return <div key={g.id} style={{marginTop:12,borderTop:"2px solid #eee",paddingTop:10}}><div style={{display:"flex",gap:5,alignItems:"center"}}><select value={g.a} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,a:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option value={i}>{x.name}</option>)}</select><input type="number" value={g.scoreA} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreA:+e.target.value}:z)}))}/><b>：</b><input type="number" value={g.scoreB} style={{width:48}} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,scoreB:+e.target.value}:z)}))}/><select value={g.b} onChange={e=>patchTournament(t.id,x=>({...x,games:x.games.map(z=>z.id===g.id?{...z,b:+e.target.value}:z)}))}>{t.teams.map((x,i)=><option value={i}>{x.name}</option>)}</select></div><div className="stat-row" style={{fontWeight:700,color:"#888"}}><span>球員</span><span>得分</span><span>籃板</span><span>助攻</span><span>失誤</span></div>{players.map(n=><div className="stat-row" key={n}><b>{n}</b>{[["points","分"],["rebounds","板"],["assists","助"],["turnovers","誤"]].map(([k,l])=><button className="mini-btn" onClick={()=>bumpStat(t.id,g.id,n,k)}>{g.stats[n]?.[k]||0} {l}</button>)}</div>)}</div>})}
+        </div>)}
+      </div>}
+
+      {/* ANNOUNCEMENTS */}
+      {tab==="notice"&&<div>
+        <div className="panel"><div className="panel-title">📢 發布公告／YouTube 影片</div><div className="form-grid"><input className="wide" placeholder="公告標題" value={noticeDraft.title} onChange={e=>setNoticeDraft(n=>({...n,title:e.target.value}))}/><textarea className="wide" rows="3" placeholder="公告內容" value={noticeDraft.body} onChange={e=>setNoticeDraft(n=>({...n,body:e.target.value}))}/><input className="wide" placeholder="YouTube 或其他連結" value={noticeDraft.url} onChange={e=>setNoticeDraft(n=>({...n,url:e.target.value}))}/><button className="btn btn-primary wide" onClick={publishNotice}>發布公告</button></div></div>
+        <div className="public-banner">目前資料僅保存在這台裝置。接上雲端資料庫後，球員可用同一網址唯讀查看公告、出席點數、裁判次數和比賽紀錄。</div>
+        {announcements.map(a=><div className="panel" key={a.id}><div style={{display:"flex",gap:8}}><b style={{flex:1}}>{a.title}</b><button className="mini-btn danger-mini" onClick={()=>setAnnouncements(x=>x.filter(v=>v.id!==a.id))}>刪除</button></div><div style={{fontSize:11,color:"#aaa",margin:"5px 0"}}>{new Date(a.date).toLocaleString("zh-TW")}</div><div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6}}>{a.body}</div>{a.url&&<a href={a.url} target="_blank" rel="noopener" style={{display:"inline-block",marginTop:8,color:"#1565c0"}}>▶ 開啟影片／連結</a>}</div>)}
+      </div>}
 
       {/* ROSTER */}
       {tab==="roster"&&(
@@ -392,7 +495,7 @@ function App(){
 
           {allPlayers.length>0&&(
             <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
-              <button className="btn" style={{background:editMode?"#ff4444":"transparent",color:editMode?"#fff":"#aaa",fontSize:12,padding:"4px 12px",border:editMode?"none":"1px solid #ddd"}} onClick={()=>setEditMode(!editMode)}>{editMode?"✓ 完成":"管理球員"}</button>
+              <button className="btn" style={{background:editMode?"#ff4444":"transparent",color:editMode?"#fff":"#aaa",fontSize:12,padding:"4px 12px",border:editMode?"none":"1px solid #ddd"}} onClick={()=>setEditMode(!editMode)}>{editMode?"✓ 完成":"🚪 中途離場／管理"}</button>
             </div>
           )}
 
@@ -417,6 +520,7 @@ function App(){
                     </div>
                     <span style={{color:"#888",fontSize:12}}>連{blackCon}場</span>
                   </div>
+                  <div style={{fontSize:11,color:"#f5a623",marginBottom:8}}>隊長：{teamCaptain(blackTeam)||"未指定"}</div>
                   <div className="players-wrap">{blackTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} dark isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
                   {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#e94560"}} onClick={()=>reportWin("black")}>🏆 黑隊贏了</button>}
                 </div>
@@ -429,6 +533,7 @@ function App(){
                     </div>
                     <span style={{color:"#888",fontSize:12}}>連{whiteCon}場</span>
                   </div>
+                  <div style={{fontSize:11,color:"#b7791f",marginBottom:8}}>隊長：{teamCaptain(whiteTeam)||"未指定"}</div>
                   <div className="players-wrap">{whiteTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove={editMode} onRemove={()=>rmPlayer(p.id)}/>)}</div>
                   {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#0f3460"}} onClick={()=>reportWin("white")}>🏆 白隊贏了</button>}
                 </div>
