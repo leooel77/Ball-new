@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0f3460">
+<meta name="theme-color" content="#0f3460">\n<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">\n<meta http-equiv="Pragma" content="no-cache">\n<meta http-equiv="Expires" content="0">
 <meta name="description" content="籃球輪轉分隊系統">
 <title>🏀 籃球輪轉</title>
 <link rel="manifest" href="manifest.json">
@@ -106,7 +106,7 @@ select,textarea{font-family:inherit;border:1.5px solid #ddd;border-radius:10px;p
 if('serviceWorker' in navigator){
   // Inline service worker as blob
   const swCode = `
-const CACHE = 'bball-v1';
+const CACHE = 'bball-v6';
 const URLS = [
   self.location.pathname.replace('sw.js',''),
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
@@ -382,7 +382,7 @@ function App(){
   return(
     <>
       <div className="header">
-        <h1>🏀 籃球輪轉</h1>
+        <h1>🏀 籃球輪轉 <span style={{fontSize:10,color:"#e94560",verticalAlign:"middle"}}>V6</span></h1>
         <div className="sub">{selectedDate} · {phase==="checkin"?`簽到中 · 正式 ${regsCI.length} 人`:`第 ${gameCount} 場 · 等候 ${waitQueue.length} 人`}</div>
         <div className="tab-bar">
           <button className={`tab-btn ${tab==="game"?"active":"inactive"}`} onClick={()=>setTab("game")}>⚡ 比賽</button>
