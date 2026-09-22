@@ -147,6 +147,7 @@ const SESSION_KEY = "bball_sessions_v1";
 const ADMIN_KEY = "bball_admin_v2";
 const SUPABASE_URL = "https://cgcillavolwsnydqpgxn.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fgqdb0wSMz_U2ojQjcl_ZQ_K9uMliYA";
+const AUTH_REDIRECT_URL = "https://leooel77.github.io/Ball-new/";
 const cloud = window.supabase?.createClient?.(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 
 function shuffle(arr) {
@@ -310,7 +311,7 @@ function App(){
   const changeStat=(tid,gid,name,key,delta)=>patchTournament(tid,t=>({...t,games:t.games.map(g=>g.id===gid?{...g,stats:{...g.stats,[name]:{points:0,rebounds:0,assists:0,turnovers:0,...g.stats[name],[key]:Math.max(0,(g.stats[name]?.[key]||0)+delta)}}}:g)}));
   const teamCaptain=team=>[...captains.tier1,...captains.tier2,...captains.tier3].find(n=>team.some(p=>p.name===n));
   const resizeCaseImage=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,900/img.width,900/img.height);const c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);setCaseDraft(d=>({...d,image:c.toDataURL("image/jpeg",.72)}))};img.src=rd.result};rd.readAsDataURL(file)};
-  const signIn=async()=>{if(!cloud||!authEmail.trim())return;setAuthMessage("寄送登入連結中…");const {error}=await cloud.auth.signInWithOtp({email:authEmail.trim(),options:{emailRedirectTo:location.href}});setAuthMessage(error?`登入失敗：${error.message}`:"請到信箱點選登入連結")};
+  const signIn=async()=>{if(!cloud||!authEmail.trim())return;setAuthMessage("寄送登入連結中…");const {error}=await cloud.auth.signInWithOtp({email:authEmail.trim(),options:{emailRedirectTo:AUTH_REDIRECT_URL}});setAuthMessage(error?`登入失敗：${error.message}`:"請到信箱點選登入連結")};
   const signOut=()=>cloud?.auth.signOut();
   const addCase=async()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;const local={...caseDraft,id:Date.now(),date:new Date().toISOString()};setCases(x=>[local,...x]);if(cloudUser&&cloud){let image_path=null;if(caseDraft.image){const path=`${cloudUser.id}/${Date.now()}.jpg`;const raw=await fetch(caseDraft.image).then(r=>r.blob());const up=await cloud.storage.from("case-images").upload(path,raw,{contentType:"image/jpeg",upsert:false});if(!up.error)image_path=path}const {data,error}=await cloud.from("cases").insert({author_id:cloudUser.id,author_name:caseDraft.author.trim(),title:caseDraft.title.trim(),body:caseDraft.body,image_path,status:"published"}).select().single();if(!error&&data)setCloudCases(x=>[data,...x]);else if(error)setAuthMessage(`雲端投稿失敗：${error.message}`)}setCaseDraft({author:"",title:"",body:"",image:""})};
   const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
