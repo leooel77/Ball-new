@@ -244,6 +244,9 @@ function App(){
   const[taskDraft,setTaskDraft]=useState({name:"",count:1,minutes:10,order:[]});
   const[taskNow,setTaskNow]=useState(Date.now());
   const[attendancePoints,setAttendancePoints]=useState({});
+  const[foulHistory,setFoulHistory]=useState({});
+  const[foulsToday,setFoulsToday]=useState({});
+  const[foulUndoStack,setFoulUndoStack]=useState([]);
   const[holidays,setHolidays]=useState([]);
   const[tournaments,setTournaments]=useState([]);
   const[announcements,setAnnouncements]=useState([]);
@@ -261,12 +264,14 @@ function App(){
   useEffect(()=>{
     try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0,refereeDates:[]};return{attendanceDates:[],refereeCount:0,refereeDates:[],...x};}))}}catch{}
     try{const sv=localStorage.getItem(SESSION_KEY);if(sv)setSessions(JSON.parse(sv))}catch{}
-    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[])}}catch{}
+    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setFoulHistory(a.foulHistory||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[])}}catch{}
     if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
   },[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(roster))}catch{}},[roster]);
   useEffect(()=>{try{localStorage.setItem(SESSION_KEY,JSON.stringify(sessions))}catch{}},[sessions]);
-  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:4,captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases]);
+  useEffect(()=>{try{const saved=localStorage.getItem(`bball_fouls_${selectedDate}`);setFoulsToday(saved?JSON.parse(saved):{})}catch{setFoulsToday({})}setFoulUndoStack([])},[selectedDate]);
+  useEffect(()=>{try{localStorage.setItem(`bball_fouls_${selectedDate}`,JSON.stringify(foulsToday))}catch{}},[selectedDate,foulsToday]);
+  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:5,captains,refereeGroup,tasks,attendancePoints,foulHistory,customRules,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,foulHistory,customRules,holidays,tournaments,announcements,cases]);
   useEffect(()=>{const id=setInterval(()=>setTaskNow(Date.now()),1000);return()=>clearInterval(id)},[]);
   useEffect(()=>{setTasks(ts=>ts.map(t=>t.active&&t.order.length&&taskNow-t.startedAt>=t.minutes*60000?{...t,index:(t.index+t.count)%t.order.length,startedAt:taskNow}:t))},[taskNow]);
   useEffect(()=>{if(!cloud)return;cloud.auth.getSession().then(({data})=>setCloudUser(data.session?.user||null));const {data}=cloud.auth.onAuthStateChange((_event,session)=>setCloudUser(session?.user||null));return()=>data.subscription.unsubscribe()},[]);
@@ -287,6 +292,28 @@ function App(){
   const insertPri=useCallback(pos=>{if(!ppPlayer)return;if(phase==="playing"){setWaitQueue(prev=>{const q=[...prev];q.splice(Math.min(3+pos-1,q.length),0,{...ppPlayer,queueOrder:-1});return q})}setPPPlayer(null);setShowPP(false);playBeep(660,.1)},[ppPlayer,phase]);
 
   const rmPlayer=useCallback(pid=>{const p=allPlayers.find(x=>x.id===pid);setAllPlayers(a=>a.filter(x=>x.id!==pid));setBlackTeam(a=>a.filter(x=>x.id!==pid));setWhiteTeam(a=>a.filter(x=>x.id!==pid));setWaitQueue(a=>a.filter(x=>x.id!==pid));if(p)setLog(l=>[...l,{text:`🚪 ${p.name} 離開了`}])},[allPlayers]);
+
+  const recordFoul=useCallback(name=>{
+    const previous={name,blackTeam:[...blackTeam],whiteTeam:[...whiteTeam],waitQueue:[...waitQueue]};
+    setFoulUndoStack(s=>[...s,previous]);
+    const total=(foulsToday[name]||0)+1;
+    setFoulsToday(v=>({...v,[name]:total}));
+    setFoulHistory(v=>({...v,[name]:(v[name]||0)+1}));
+    if(total!==5)return;
+    const team=blackTeam.some(p=>p.name===name)?"black":whiteTeam.some(p=>p.name===name)?"white":null;
+    const dc=Math.max(0,Math.min(3,waitQueue.length-5));
+    const substitute=waitQueue.slice(dc)[0];
+    if(!team||!substitute){setLog(l=>[...l,{text:`⚠️ ${name} 已達5犯；目前無合適替補，只保留紀錄。`}]);return}
+    const fouled=[...blackTeam,...whiteTeam].find(p=>p.name===name);
+    if(team==="black")setBlackTeam(t=>t.map(p=>p.name===name?{...substitute,gamesOnCourt:1}:p));
+    else setWhiteTeam(t=>t.map(p=>p.name===name?{...substitute,gamesOnCourt:1}:p));
+    setWaitQueue(q=>[...q.filter(p=>p.id!==substitute.id),{...fouled,gamesOnCourt:0,queueOrder:Date.now()}]);
+    const msg=`${name}5犯下場，由${substitute.name}替補`;
+    setLog(l=>[...l,{text:`⚠️ ${msg}`,announcement:msg}]);
+    speak(msg);
+  },[foulsToday,blackTeam,whiteTeam,waitQueue]);
+  const undoFoul=useCallback(()=>{const last=foulUndoStack[foulUndoStack.length-1];if(!last)return;setFoulsToday(v=>({...v,[last.name]:Math.max(0,(v[last.name]||0)-1)}));setFoulHistory(v=>({...v,[last.name]:Math.max(0,(v[last.name]||0)-1)}));setBlackTeam(last.blackTeam);setWhiteTeam(last.whiteTeam);setWaitQueue(last.waitQueue);setFoulUndoStack(s=>s.slice(0,-1))},[foulUndoStack]);
+  const reportDraw=useCallback(()=>{let q=[...waitQueue,...blackTeam,...whiteTeam].map((p,i)=>({...p,gamesOnCourt:0,queueOrder:queueCounter+i}));q=sortQueue(q);const dc=Math.max(0,Math.min(3,q.length-10));const duty=q.slice(0,dc),pool=q.slice(dc);if(pool.length<10){setLog(l=>[...l,{text:"⚠️ 人數不足，無法重新分隊"}]);return}const next=shuffle(pool.slice(0,10));const nb=next.slice(0,5),nw=next.slice(5,10);setBlackTeam(nb);setWhiteTeam(nw);setWaitQueue([...pool.slice(10),...duty]);setBlackCon(1);setWhiteCon(1);setAtkColor("white");setGameCount(g=>g+1);setQueueCounter(n=>n+q.length);const ann=mkAnn("白隊",nw,"黑隊",nb,gameCount+1,duty);setLog(l=>[...l,{text:"🤝 平手：兩隊都下場，依後續順位重新打亂分隊。",announcement:ann}]);playBeep(660,.2)},[waitQueue,blackTeam,whiteTeam,queueCounter,gameCount]);
 
   const snap=useCallback(()=>JSON.parse(JSON.stringify({allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,queueCounter})),[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,queueCounter]);
 
@@ -330,8 +357,8 @@ function App(){
   const signIn=async()=>{if(!cloud||!authEmail.trim())return;setAuthMessage("寄送登入連結中…");const {error}=await cloud.auth.signInWithOtp({email:authEmail.trim(),options:{emailRedirectTo:AUTH_REDIRECT_URL}});setAuthMessage(error?`登入失敗：${error.message}`:"請到信箱點選登入連結")};
   const signOut=()=>cloud?.auth.signOut();
   const addCase=async()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;const local={...caseDraft,id:Date.now(),date:new Date().toISOString()};setCases(x=>[local,...x]);if(cloudUser&&cloud){let image_path=null;if(caseDraft.image){const path=`${cloudUser.id}/${Date.now()}.jpg`;const raw=await fetch(caseDraft.image).then(r=>r.blob());const up=await cloud.storage.from("case-images").upload(path,raw,{contentType:"image/jpeg",upsert:false});if(!up.error)image_path=path}const {data,error}=await cloud.from("cases").insert({author_id:cloudUser.id,author_name:caseDraft.author.trim(),title:caseDraft.title.trim(),body:caseDraft.body,image_path,status:"published"}).select().single();if(!error&&data)setCloudCases(x=>[data,...x]);else if(error)setAuthMessage(`雲端投稿失敗：${error.message}`)}setCaseDraft({author:"",title:"",body:"",image:""})};
-  const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
-  const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
+  const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,foulHistory,customRules,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
+  const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setFoulHistory(a.foulHistory||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
 
   const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
   const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(i<2)return"裁判";return"記錄台";};
@@ -498,6 +525,7 @@ function App(){
       {tab==="roster"&&(
         <div style={{marginTop:16}}>
           <div className="panel" style={{marginTop:0}}><div className="panel-title">💾 資料保留與移轉</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>同一網址更新版本會保留瀏覽器資料；仍建議定期下載備份，換手機或清除瀏覽器資料後可匯入。</p><div style={{display:"flex",gap:8}}><button className="mini-btn" style={{flex:1}} onClick={exportData}>下載完整備份</button><button className="mini-btn" style={{flex:1}} onClick={()=>importRef.current?.click()}>匯入備份</button><input ref={importRef} type="file" accept="application/json" style={{display:"none"}} onChange={e=>importData(e.target.files?.[0])}/></div></div>
+          <div className="panel"><div className="panel-title">🚫 歷史犯規統計</div>{roster.map(r=><div key={r.name} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #eee",fontSize:13}}><span>{r.name}</span><b>{foulHistory[r.name]||0} 次</b></div>)}</div>
           <div className="input-row" style={{marginBottom:16}}>
             <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} placeholder="新增球員姓名..."/>
             <button className="btn btn-primary" onClick={addRoster}>+新增</button>
@@ -607,9 +635,15 @@ function App(){
                   <div style={{fontSize:11,color:"#b7791f",marginBottom:8}}>隊長：{teamCaptain(whiteTeam)||"未指定"}</div>
                   <div className="players-wrap">{whiteTeam.map(p=><Badge key={p.id} name={p.name} displayNum={p.id} isTemp={p.isTemp} isPriority={p.isPriority} gamesOnCourt={p.gamesOnCourt} totalGamesPlayed={p.totalGamesPlayed} refereeCount={rosterMap[p.name]?.refereeCount||0} showRemove onRemove={()=>rmPlayer(p.id)}/>)}</div>
                   {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#0f3460"}} onClick={()=>reportWin("white")}>🏆 白隊贏了</button>}
+                  {blackTeam.length===5&&whiteTeam.length===5&&!editMode&&<button className="win-btn" style={{background:"#7b68ee"}} onClick={reportDraw}>🤝 平手／兩隊都下場</button>}
                 </div>
               </div>
 
+              <div className="panel" style={{marginTop:12}}>
+                <div className="panel-title">🚫 當日犯規（點姓名＋1）</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{[...blackTeam,...whiteTeam].map(p=><button key={p.id} className="mini-btn" onClick={()=>recordFoul(p.name)} style={{background:(foulsToday[p.name]||0)>=5?"#e94560":"#eef3ff",color:(foulsToday[p.name]||0)>=5?"#fff":"#0f3460"}}>{p.name}：{foulsToday[p.name]||0}犯</button>)}</div>
+                <button className="mini-btn danger-mini" style={{marginTop:8}} onClick={undoFoul} disabled={!foulUndoStack.length}>↩ 恢復上一筆犯規</button>
+              </div>
               <SecTitle icon="⏳" count={waitQueue.length}>等候區</SecTitle>
               {waitQueue.length===0?<div style={{textAlign:"center",color:"#aaa",fontSize:14,padding:16}}>目前沒有人在等候</div>:(
                 <div>
