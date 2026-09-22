@@ -211,6 +211,9 @@ function PriLabel({priority}){
 function App(){
   const[roster,setRoster]=useState([]);
   const[rosterInput,setRosterInput]=useState("");
+  const[emailInput,setEmailInput]=useState("");
+  const[ruleDraft,setRuleDraft]=useState("");
+  const[customRules,setCustomRules]=useState([]);
   const[tab,setTab]=useState("game");
   const[allPlayers,setAllPlayers]=useState([]);
   const[nameInput,setNameInput]=useState("");
@@ -258,12 +261,12 @@ function App(){
   useEffect(()=>{
     try{const s=localStorage.getItem(STORAGE_KEY);if(s){const p=JSON.parse(s);setRoster(p.map(x=>{if(typeof x==="string")return{name:x,attendanceDates:[],refereeCount:0,refereeDates:[]};return{attendanceDates:[],refereeCount:0,refereeDates:[],...x};}))}}catch{}
     try{const sv=localStorage.getItem(SESSION_KEY);if(sv)setSessions(JSON.parse(sv))}catch{}
-    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[])}}catch{}
+    try{const av=localStorage.getItem(ADMIN_KEY);if(av){const a=JSON.parse(av);setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[])}}catch{}
     if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices()}
   },[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(roster))}catch{}},[roster]);
   useEffect(()=>{try{localStorage.setItem(SESSION_KEY,JSON.stringify(sessions))}catch{}},[sessions]);
-  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:3,captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases]);
+  useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:4,captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases]);
   useEffect(()=>{const id=setInterval(()=>setTaskNow(Date.now()),1000);return()=>clearInterval(id)},[]);
   useEffect(()=>{setTasks(ts=>ts.map(t=>t.active&&t.order.length&&taskNow-t.startedAt>=t.minutes*60000?{...t,index:(t.index+t.count)%t.order.length,startedAt:taskNow}:t))},[taskNow]);
   useEffect(()=>{if(!cloud)return;cloud.auth.getSession().then(({data})=>setCloudUser(data.session?.user||null));const {data}=cloud.auth.onAuthStateChange((_event,session)=>setCloudUser(session?.user||null));return()=>data.subscription.unsubscribe()},[]);
@@ -272,7 +275,9 @@ function App(){
   useEffect(()=>{selectedDateRef.current=selectedDate;},[selectedDate]);
   useEffect(()=>{const sd=selectedDateRef.current;if(!sd)return;setSessions(prev=>({...prev,[sd]:{allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter}}));},[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase]);
 
-  const addRoster=useCallback(()=>{const t=rosterInput.trim();if(!t||roster.some(x=>x.name===t))return;setRoster(p=>[...p,{name:t,attendanceDates:[],refereeCount:0,refereeDates:[]}]);setRosterInput("");playBeep(880,.08);setTimeout(()=>rRef.current?.focus(),50)},[rosterInput,roster]);
+  const addRoster=useCallback(()=>{const t=rosterInput.trim(),email=emailInput.trim();if(!t||roster.some(x=>x.name===t))return;setRoster(p=>[...p,{name:t,email,attendanceDates:[],refereeCount:0,refereeDates:[]}]);setRosterInput("");setEmailInput("");playBeep(880,.08);setTimeout(()=>rRef.current?.focus(),50)},[rosterInput,emailInput,roster]);
+  const updateRosterEmail=(name,email)=>setRoster(rs=>rs.map(r=>r.name===name?{...r,email}:r));
+  const addCustomRule=()=>{if(!ruleDraft.trim())return;setCustomRules(rs=>[...rs,{id:Date.now(),text:ruleDraft.trim()}]);setRuleDraft("")};
   const rmRoster=n=>setRoster(p=>p.filter(x=>x.name!==n));
 
   const checkin=useCallback(name=>{if(allPlayers.some(p=>p.name===name))return;const pl={name,id:nextId,isTemp:false,isPriority:false,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:queueCounter};setAllPlayers(p=>[...p,pl]);if(phase==="playing")setWaitQueue(p=>sortQueue([...p,pl]));setRoster(r=>r.map(x=>x.name===name?{...x,attendanceDates:x.attendanceDates.includes(selectedDate)?x.attendanceDates:[...x.attendanceDates,selectedDate]}:x));setNextId(n=>n+1);setQueueCounter(n=>n+1);playBeep(880,.08)},[allPlayers,nextId,queueCounter,phase,selectedDate]);
@@ -325,8 +330,8 @@ function App(){
   const signIn=async()=>{if(!cloud||!authEmail.trim())return;setAuthMessage("寄送登入連結中…");const {error}=await cloud.auth.signInWithOtp({email:authEmail.trim(),options:{emailRedirectTo:AUTH_REDIRECT_URL}});setAuthMessage(error?`登入失敗：${error.message}`:"請到信箱點選登入連結")};
   const signOut=()=>cloud?.auth.signOut();
   const addCase=async()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;const local={...caseDraft,id:Date.now(),date:new Date().toISOString()};setCases(x=>[local,...x]);if(cloudUser&&cloud){let image_path=null;if(caseDraft.image){const path=`${cloudUser.id}/${Date.now()}.jpg`;const raw=await fetch(caseDraft.image).then(r=>r.blob());const up=await cloud.storage.from("case-images").upload(path,raw,{contentType:"image/jpeg",upsert:false});if(!up.error)image_path=path}const {data,error}=await cloud.from("cases").insert({author_id:cloudUser.id,author_name:caseDraft.author.trim(),title:caseDraft.title.trim(),body:caseDraft.body,image_path,status:"published"}).select().single();if(!error&&data)setCloudCases(x=>[data,...x]);else if(error)setAuthMessage(`雲端投稿失敗：${error.message}`)}setCaseDraft({author:"",title:"",body:"",image:""})};
-  const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
-  const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
+  const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,customRules,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
+  const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setCustomRules(a.customRules||[]);setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
 
   const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
   const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(i<2)return"裁判";return"記錄台";};
@@ -364,6 +369,8 @@ function App(){
       {tab==="rules"&&<div>
         <div className="panel"><div className="panel-title">📖 籃球輪轉完整規則</div>
           {rulesText.map((r,i)=><div key={i} style={{display:"flex",gap:8,padding:"10px 0",borderBottom:i<rulesText.length-1?"1px solid #eee":"none",fontSize:13,lineHeight:1.6}}><b style={{color:"#0f3460",minWidth:24}}>{i+1}.</b><span>{r}</span></div>)}
+          {customRules.map(r=><div key={r.id} style={{display:"flex",gap:6,padding:"8px 0"}}><input style={{flex:1}} value={r.text} onChange={e=>setCustomRules(rs=>rs.map(x=>x.id===r.id?{...x,text:e.target.value}:x))}/><button className="mini-btn danger-mini" onClick={()=>setCustomRules(rs=>rs.filter(x=>x.id!==r.id))}>刪除</button></div>)}
+          <div style={{display:"flex",gap:6,marginTop:12}}><input style={{flex:1}} placeholder="新增自訂規則" value={ruleDraft} onChange={e=>setRuleDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCustomRule()}/><button className="mini-btn" onClick={addCustomRule}>新增規則</button></div>
         </div>
         <div className="panel"><div className="panel-title">📣 裁判順位快速對照</div><div style={{fontSize:14,lineHeight:2}}><div>順位 1 → <b style={{color:"#f5a623"}}>裁判一</b></div><div>順位 2 → <b style={{color:"#f5a623"}}>裁判二</b></div><div>順位 3 → <b style={{color:"#7b68ee"}}>記分員</b></div><div style={{fontSize:12,color:"#777",marginTop:6}}>每場任務完成後，三人移到等候區最後，下一場重新依順位輪值。</div></div></div>
       </div>}
@@ -492,9 +499,10 @@ function App(){
         <div style={{marginTop:16}}>
           <div className="panel" style={{marginTop:0}}><div className="panel-title">💾 資料保留與移轉</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>同一網址更新版本會保留瀏覽器資料；仍建議定期下載備份，換手機或清除瀏覽器資料後可匯入。</p><div style={{display:"flex",gap:8}}><button className="mini-btn" style={{flex:1}} onClick={exportData}>下載完整備份</button><button className="mini-btn" style={{flex:1}} onClick={()=>importRef.current?.click()}>匯入備份</button><input ref={importRef} type="file" accept="application/json" style={{display:"none"}} onChange={e=>importData(e.target.files?.[0])}/></div></div>
           <div className="input-row" style={{marginBottom:16}}>
-            <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addRoster()} placeholder="新增球員到資料庫..."/>
+            <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} placeholder="新增球員姓名..."/>
             <button className="btn btn-primary" onClick={addRoster}>+新增</button>
           </div>
+          <input style={{width:"100%",marginBottom:16}} type="email" value={emailInput} onChange={e=>setEmailInput(e.target.value)} placeholder="新增球員 Email（通知用，可選填）"/>
           {roster.length===0?<div style={{textAlign:"center",color:"#aaa",padding:40,fontSize:14}}>還沒有球員，新增球員到資料庫吧！</div>:(
             <div>
               <div style={{fontSize:13,color:"#888",marginBottom:8}}>共 {roster.length} 位球員</div>
@@ -502,6 +510,7 @@ function App(){
                 {[...roster].sort((a,b)=>(b.attendanceDates?.length||0)-(a.attendanceDates?.length||0)).map(r=>(
                   <div key={r.name} style={{display:"flex",alignItems:"center",gap:8,background:ciNames.has(r.name)?"#e8f5e9":"#fff",border:ciNames.has(r.name)?"1.5px solid #4caf50":"1.5px solid #ddd",borderRadius:12,padding:"10px 14px"}}>
                     <span style={{flex:1,fontWeight:600,fontSize:14}}>{r.name}</span>
+                    <input type="email" value={r.email||""} placeholder="Email" onChange={e=>updateRosterEmail(r.name,e.target.value)} style={{width:145,fontSize:11,padding:"5px"}}/>
                     {ciNames.has(r.name)&&<span style={{fontSize:10,color:"#4caf50",fontWeight:700}}>已簽到</span>}
                     <span style={{fontSize:11,background:"#e8f0ff",color:"#5c6bc0",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>📅 {r.attendanceDates?.length||0}次</span>
                     <span style={{fontSize:11,background:"#fff3e0",color:"#e65100",borderRadius:10,padding:"3px 8px",fontWeight:700,whiteSpace:"nowrap"}}>🏅 裁{r.refereeCount||0}次</span>
