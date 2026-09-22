@@ -161,7 +161,17 @@ function shuffle(arr) {
 
 function playBeep(freq=660,dur=.12){try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=freq;g.gain.value=.15;o.start();g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);o.stop(c.currentTime+dur)}catch(e){}}
 
-function speak(text){  try{    if(!window.speechSynthesis)return;    window.speechSynthesis.cancel();    const doSpeak=()=>{      const u=new SpeechSynthesisUtterance(text);      u.lang="zh-TW";u.rate=0.85;u.pitch=1;u.volume=1;      const voices=window.speechSynthesis.getVoices();      const zh=voices.find(v=>v.lang==="zh-TW")||voices.find(v=>v.lang.startsWith("zh"))||null;      if(zh)u.voice=zh;      window.speechSynthesis.speak(u);    };    const voices=window.speechSynthesis.getVoices();    if(voices.length>0){doSpeak();}    else{window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;doSpeak();};setTimeout(doSpeak,500);}  }catch(e){}}
+function speak(text){  try{    if(!window.speechSynthesis)return;    window.speechSynthesis.cancel();    const doSpeak=()=>{      const u=new SpeechSynthesisUtterance(text);      u.lang="zh-TW";u.rate=0.85;u.pitch=1;u.volume=1;
+      const voices=window.speechSynthesis.getVoices();
+      const zh=voices.find(v=>v.lang==="zh-TW")||voices.find(v=>v.lang.startsWith("zh"))||null;
+      if(zh)u.voice=zh;
+      window.speechSynthesis.speak(u);
+    };
+    const voices=window.speechSynthesis.getVoices();
+    if(voices.length>0){doSpeak();}
+    else{window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;doSpeak();};setTimeout(doSpeak,500);}
+  }catch(e){}
+}
 
 function getPriority(p){if(!p.isTemp&&!p.isPriority&&p.totalGamesPlayed===0)return 0;if(p.isPriority)return .5;if(p.isTemp)return 1;if(p.totalGamesPlayed===1)return 2;return 3}
 
@@ -217,6 +227,7 @@ function App(){
   const[log,setLog]=useState([]);
   const[phase,setPhase]=useState("checkin");
   const[showLog,setShowLog]=useState(false);
+  const[speakerStatus,setSpeakerStatus]=useState("idle");
   const[editMode,setEditMode]=useState(false);
   const[history,setHistory]=useState([]);
   const[showPP,setShowPP]=useState(false);
@@ -278,11 +289,11 @@ function App(){
 
   const undo=useCallback(()=>{if(!history.length)return;restore(history[history.length-1]);setHistory(h=>h.slice(0,-1));playBeep(330,.15)},[history,restore]);
 
-  const mkAnn=(an,ap,dn,dp,g,duty=[])=>{let s=`第${g}場，攻擊方${an}，${ap.map(p=>p.name).join("，")}。防守方${dn}，${dp.map(p=>p.name).join("，")}。`;if(duty.length>0)s+=`裁判${duty[0].name}。`;if(duty.length>1)s+=`計分${duty[1].name}。`;return s;};
+  const mkAnn=(an,ap,dn,dp,g,duty=[])=>{let s=`第${g}場，攻擊方${an}，${ap.map(p=>p.name).join("，")}。防守方${dn}，${dp.map(p=>p.name).join("，")}。`;if(duty.length>0)s+=`裁判一${duty[0].name}。`;if(duty.length>1)s+=`裁判二${duty[1].name}。`;if(duty.length>2)s+=`記錄台${duty[2].name}。`;return s;};
 
-  const startGame=useCallback(()=>{const regs=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);if(regs.length<10)return;setHistory(h=>[...h,snap()]);const f10=regs.slice(0,10).map(p=>({...p,totalGamesPlayed:1,gamesOnCourt:1}));const sh=shuffle(f10);const bk=sh.slice(0,5),wt=sh.slice(5,10);const rest=allPlayers.filter(p=>!f10.some(f=>f.id===p.id)).map(p=>({...p,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:p.queueOrder||p.id}));const ids=new Set(f10.map(p=>p.id));setAllPlayers(prev=>prev.map(p=>ids.has(p.id)?{...p,totalGamesPlayed:1}:p));setBlackTeam(bk);setWhiteTeam(wt);setWaitQueue(sortQueue(rest));setBlackCon(1);setWhiteCon(1);setAtkColor("white");setGameCount(1);setPhase("playing");const iQ=sortQueue(rest);const iDC=Math.max(0,Math.min(2,iQ.length-5));const iDuty=iQ.slice(0,iDC);const iRefs=new Set(iDuty.map(p=>p.name));if(iRefs.size>0)setRoster(r=>r.map(x=>iRefs.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));const ann=mkAnn("白隊",wt,"黑隊",bk,1,iDuty);const dutyText=iDuty.length>0?`\n📣 ${iDuty.map((p,i)=>i===0?`裁判：${p.name}`:i===1?`計分：${p.name}`:``).filter(Boolean).join(" · ")}`:"";setLog([{text:`🏀 第1場開始！\n⚔️ 攻擊：白隊 (${wt.map(p=>p.name).join("、")})\n🛡️ 防守：黑隊 (${bk.map(p=>p.name).join("、")})${dutyText}`,announcement:ann}]);playBeep(440,.2)},[allPlayers,snap]);
+  const startGame=useCallback(()=>{const regs=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);if(regs.length<10)return;setHistory(h=>[...h,snap()]);const f10=regs.slice(0,10).map(p=>({...p,totalGamesPlayed:1,gamesOnCourt:1}));const sh=shuffle(f10);const bk=sh.slice(0,5),wt=sh.slice(5,10);const rest=allPlayers.filter(p=>!f10.some(f=>f.id===p.id)).map(p=>({...p,totalGamesPlayed:0,gamesOnCourt:0,queueOrder:p.queueOrder||p.id}));const ids=new Set(f10.map(p=>p.id));setAllPlayers(prev=>prev.map(p=>ids.has(p.id)?{...p,totalGamesPlayed:1}:p));setBlackTeam(bk);setWhiteTeam(wt);setWaitQueue(sortQueue(rest));setBlackCon(1);setWhiteCon(1);setAtkColor("white");setGameCount(1);setPhase("playing");const iQ=sortQueue(rest);const iDC=Math.max(0,Math.min(2,iQ.length-5));const iDuty=iQ.slice(0,iDC);const iRefs=new Set(iDuty.map(p=>p.name));if(iRefs.size>0)setRoster(r=>r.map(x=>iRefs.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));const ann=mkAnn("白隊",wt,"黑隊",bk,1,iDuty);const dutyText=iDuty.length>0?`\n📣 ${iDuty.map((p,i)=>i===0?`裁判一：${p.name}`:i===1?`裁判二：${p.name}`:i===2?`記錄台：${p.name}`:``).filter(Boolean).join(" · ")}`:"";setLog([{text:`🏀 第1場開始！\n⚔️ 攻擊：白隊 (${wt.map(p=>p.name).join("、")})\n🛡️ 防守：黑隊 (${bk.map(p=>p.name).join("、")})${dutyText}`,announcement:ann}]);playBeep(440,.2)},[allPlayers,snap]);
 
-  const reportWin=useCallback(winner=>{setHistory(h=>[...h,snap()]);const winT=winner==="black"?[...blackTeam]:[...whiteTeam];const loseT=winner==="black"?[...whiteTeam]:[...blackTeam];const wL=winner==="black"?"黑隊":"白隊";const wCon=winner==="black"?blackCon:whiteCon;const aL=atkColor==="black"?"黑隊":"白隊";const dL=atkColor==="black"?"白隊":"黑隊";const nGC=gameCount+1;const nLog=[...log,{text:`✅ 第${gameCount}場結果：${wL}勝！（⚔️${aL}攻 vs 🛡️${dL}防）`}];let nQC=queueCounter;const lToQ=loseT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=loseT.length;let nQ=[...waitQueue,...lToQ];let stay;let nWC=wCon+1;const mustR=wCon>=2;if(mustR){nLog.push({text:`🔄 ${wL}已連贏2場，全隊下場輪換`});const wToQ=winT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=winT.length;nQ=[...nQ,...wToQ];stay=null;nWC=0}else{stay=winT.map(p=>({...p,gamesOnCourt:p.gamesOnCourt+1}))}nQ=sortQueue(nQ);const needed=stay?5:10;const totalDC=Math.max(0,Math.min(3,nQ.length-needed));const dutyPool=nQ.slice(0,totalDC);const playPool=nQ.slice(totalDC);let nB,nW,fQ,nBC,nWC2,nAC;if(stay){const ch=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));fQ=[...dutyPool,...playPool.slice(5)];if(winner==="black"){nB=stay;nW=ch;nBC=nWC;nWC2=1;nAC="white"}else{nW=stay;nB=ch;nWC2=nWC;nBC=1;nAC="black"}}else{const t1=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));const t2=playPool.slice(5,10).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));nB=t1;nW=t2;fQ=[...dutyPool,...playPool.slice(10)];nBC=1;nWC2=1;nAC="white"}const ocM={};[...(nB||[]),...(nW||[])].forEach(p=>{ocM[p.id]=p.totalGamesPlayed});const qM={};fQ.forEach(p=>{qM[p.id]=p.totalGamesPlayed});setAllPlayers(prev=>prev.map(p=>{if(ocM[p.id]!==undefined)return{...p,totalGamesPlayed:ocM[p.id]};if(qM[p.id]!==undefined)return{...p,totalGamesPlayed:qM[p.id]};return p}));if((nB?.length||0)<5||(nW?.length||0)<5){nLog.push({text:`⚠️ 等候區人數不足，需要更多人才能繼續`})}else{const an=nAC==="black"?"黑隊":"白隊";const dn=nAC==="black"?"白隊":"黑隊";const ap=nAC==="black"?nB:nW;const dp=nAC==="black"?nW:nB;const ann=mkAnn(an,ap,dn,dp,nGC,dutyPool);const dutyTxt=dutyPool.length>0?`\n📣 ${dutyPool.map((p,i)=>i===0?`裁判：${p.name}`:i===1?`計分：${p.name}`:``).filter(Boolean).join(" · ")}`:"";nLog.push({text:`🏀 第${nGC}場開始！\n⚔️ 攻擊：${an} (${ap.map(p=>p.name).join("、")})\n🛡️ 防守：${dn} (${dp.map(p=>p.name).join("、")})${dutyTxt}`,announcement:ann})}setBlackTeam(nB||[]);setWhiteTeam(nW||[]);setWaitQueue(fQ);setBlackCon(nBC);setWhiteCon(nWC2);setAtkColor(nAC);setGameCount(nGC);setQueueCounter(nQC);setLog(nLog);const refNames=new Set(dutyPool.slice(0,Math.min(2,dutyPool.length)).map(p=>p.name));if(refNames.size>0)setRoster(r=>r.map(x=>refNames.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));playBeep(440,.2)},[blackTeam,whiteTeam,waitQueue,gameCount,log,blackCon,whiteCon,atkColor,queueCounter,snap]);
+  const reportWin=useCallback(winner=>{setHistory(h=>[...h,snap()]);const winT=winner==="black"?[...blackTeam]:[...whiteTeam];const loseT=winner==="black"?[...whiteTeam]:[...blackTeam];const wL=winner==="black"?"黑隊":"白隊";const wCon=winner==="black"?blackCon:whiteCon;const aL=atkColor==="black"?"黑隊":"白隊";const dL=atkColor==="black"?"白隊":"黑隊";const nGC=gameCount+1;const nLog=[...log,{text:`✅ 第${gameCount}場結果：${wL}勝！（⚔️${aL}攻 vs 🛡️${dL}防）`}];let nQC=queueCounter;const lToQ=loseT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=loseT.length;let nQ=[...waitQueue,...lToQ];let stay;let nWC=wCon+1;const mustR=wCon>=2;if(mustR){nLog.push({text:`🔄 ${wL}已連贏2場，全隊下場輪換`});const wToQ=winT.map((p,i)=>({...p,gamesOnCourt:0,queueOrder:nQC+i}));nQC+=winT.length;nQ=[...nQ,...wToQ];stay=null;nWC=0}else{stay=winT.map(p=>({...p,gamesOnCourt:p.gamesOnCourt+1}))}nQ=sortQueue(nQ);const needed=stay?5:10;const totalDC=Math.max(0,Math.min(3,nQ.length-needed));const dutyPool=nQ.slice(0,totalDC);const playPool=nQ.slice(totalDC);let nB,nW,fQ,nBC,nWC2,nAC;if(stay){const ch=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));fQ=[...dutyPool,...playPool.slice(5)];if(winner==="black"){nB=stay;nW=ch;nBC=nWC;nWC2=1;nAC="white"}else{nW=stay;nB=ch;nWC2=nWC;nBC=1;nAC="black"}}else{const t1=playPool.slice(0,5).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));const t2=playPool.slice(5,10).map(p=>({...p,gamesOnCourt:1,totalGamesPlayed:p.totalGamesPlayed+1}));nB=t1;nW=t2;fQ=[...dutyPool,...playPool.slice(10)];nBC=1;nWC2=1;nAC="white"}const ocM={};[...(nB||[]),...(nW||[])].forEach(p=>{ocM[p.id]=p.totalGamesPlayed});const qM={};fQ.forEach(p=>{qM[p.id]=p.totalGamesPlayed});setAllPlayers(prev=>prev.map(p=>{if(ocM[p.id]!==undefined)return{...p,totalGamesPlayed:ocM[p.id]};if(qM[p.id]!==undefined)return{...p,totalGamesPlayed:qM[p.id]};return p}));if((nB?.length||0)<5||(nW?.length||0)<5){nLog.push({text:`⚠️ 等候區人數不足，需要更多人才能繼續`})}else{const an=nAC==="black"?"黑隊":"白隊";const dn=nAC==="black"?"白隊":"黑隊";const ap=nAC==="black"?nB:nW;const dp=nAC==="black"?nW:nB;const ann=mkAnn(an,ap,dn,dp,nGC,dutyPool);const dutyTxt=dutyPool.length>0?`\n📣 ${dutyPool.map((p,i)=>i===0?`裁判一：${p.name}`:i===1?`裁判二：${p.name}`:i===2?`記錄台：${p.name}`:``).filter(Boolean).join(" · ")}`:"";nLog.push({text:`🏀 第${nGC}場開始！\n⚔️ 攻擊：${an} (${ap.map(p=>p.name).join("、")})\n🛡️ 防守：${dn} (${dp.map(p=>p.name).join("、")})${dutyTxt}`,announcement:ann})}setBlackTeam(nB||[]);setWhiteTeam(nW||[]);setWaitQueue(fQ);setBlackCon(nBC);setWhiteCon(nWC2);setAtkColor(nAC);setGameCount(nGC);setQueueCounter(nQC);setLog(nLog);const refNames=new Set(dutyPool.slice(0,Math.min(2,dutyPool.length)).map(p=>p.name));if(refNames.size>0)setRoster(r=>r.map(x=>refNames.has(x.name)?{...x,refereeCount:(x.refereeCount||0)+1}:x));playBeep(440,.2)},[blackTeam,whiteTeam,waitQueue,gameCount,log,blackCon,whiteCon,atkColor,queueCounter,snap]);
 
   const getGameState=()=>({allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter});
   const applyGameState=s=>{setAllPlayers(s.allPlayers||[]);setBlackTeam(s.blackTeam||[]);setWhiteTeam(s.whiteTeam||[]);setWaitQueue(s.waitQueue||[]);setBlackCon(s.blackCon||0);setWhiteCon(s.whiteCon||0);setAtkColor(s.atkColor||"white");setGameCount(s.gameCount||0);setLog(s.log||[]);setPhase(s.phase||"checkin");setNextId(s.nextId||1);setQueueCounter(s.queueCounter||1);setHistory([]);setEditMode(false);setNameInput("");setAddMode("temp");};
@@ -318,7 +329,13 @@ function App(){
   const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
 
   const rosterMap=Object.fromEntries(roster.map(r=>[r.name,r]));
-  const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(dutyCount>=3)return i<=1?"裁判":"記錄台";if(dutyCount===2)return i===0?"裁判":"計分";return"裁判";};
+  const dutyCount=Math.max(0,Math.min(3,waitQueue.length-5));const qRole=i=>{if(i>=dutyCount)return null;if(i<2)return"裁判";return"記錄台";};
+  const playAnnouncement=text=>{speak(text);setSpeakerStatus("playing")};
+  const pauseAnnouncement=()=>{if(window.speechSynthesis?.speaking){window.speechSynthesis.pause();setSpeakerStatus("paused")}};
+  const resumeAnnouncement=()=>{if(window.speechSynthesis?.paused){window.speechSynthesis.resume();setSpeakerStatus("playing")}};
+  const stopAnnouncement=()=>{window.speechSynthesis?.cancel();setSpeakerStatus("idle")};
+  const playerRanking=waitQueue.slice(dutyCount);
+  const refereeRanking=[...roster].sort((a,b)=>(b.refereeCount||0)-(a.refereeCount||0)||a.name.localeCompare(b.name,"zh-Hant"));
   const regsCI=allPlayers.filter(p=>!p.isTemp&&!p.isPriority);
   const tempsCI=allPlayers.filter(p=>p.isTemp);
   const priCI=allPlayers.filter(p=>p.isPriority);
@@ -591,9 +608,27 @@ function App(){
                 <button className="btn" style={{background:"transparent",color:"#888",fontSize:13,padding:"8px 0"}} onClick={()=>setShowLog(!showLog)}>{showLog?"▼":"▶"} 比賽記錄 ({log.length})</button>
                 {showLog&&(
                   <div style={{background:"#fff",borderRadius:12,padding:12,maxHeight:350,overflowY:"auto",border:"1px solid #e8e8e8"}}>
-                    {log.map((e,i)=><div key={i} className="log-entry"><div style={{flex:1}}>{e.text}</div>{e.announcement&&<button className="speak-btn" onClick={()=>speak(e.announcement)}>🔊</button>}</div>)}
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:12,color:"#666",marginRight:4}}>📣 比賽喇叭</span>
+                      <button className="speak-btn" onClick={()=>{const e=[...log].reverse().find(x=>x.announcement);if(e)playAnnouncement(e.announcement)}}>▶ 播放</button>
+                      <button className="speak-btn" onClick={pauseAnnouncement} disabled={speakerStatus!=="playing"}>⏸ 暫停</button>
+                      <button className="speak-btn" onClick={resumeAnnouncement} disabled={speakerStatus!=="paused"}>▶ 繼續</button>
+                      <button className="speak-btn" onClick={stopAnnouncement}>⏹ 停止</button>
+                    </div>
+                    {log.map((e,i)=><div key={i} className="log-entry"><div style={{flex:1}}>{e.text}</div>{e.announcement&&<button className="speak-btn" onClick={()=>playAnnouncement(e.announcement)}>🔊</button>}</div>)}
                   </div>
                 )}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:12,marginTop:16}}>
+                <div className="panel" style={{padding:12}}>
+                  <div className="panel-title">🏀 下一場上場順位表</div>
+                  {playerRanking.length===0?<div style={{color:"#999",fontSize:13}}>目前沒有排隊球員</div>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{color:"#777",textAlign:"left"}}><th style={{padding:"5px 3px"}}>順位</th><th style={{padding:"5px 3px"}}>球員</th><th style={{padding:"5px 3px"}}>目前狀態</th></tr></thead><tbody>{playerRanking.map((p,i)=><tr key={p.id||p.name} style={{borderTop:"1px solid #eee"}}><td style={{padding:"6px 3px",fontWeight:700,color:i<3?["#d4a017","#777","#a65f3b"][i]:"#555"}}>{i+1}</td><td style={{padding:"6px 3px",fontWeight:600}}>{p.name}</td><td style={{padding:"6px 3px"}}>{i<5?"下一場上場":"等候"}</td></tr>)}</tbody></table></div>}
+                </div>
+                <div className="panel" style={{padding:12}}>
+                  <div className="panel-title">🦓 裁判順位表</div>
+                  {refereeRanking.length===0?<div style={{color:"#999",fontSize:13}}>尚無裁判資料</div>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{color:"#777",textAlign:"left"}}><th style={{padding:"5px 3px"}}>排名</th><th style={{padding:"5px 3px"}}>球員</th><th style={{padding:"5px 3px"}}>裁判次數</th></tr></thead><tbody>{refereeRanking.map((p,i)=><tr key={p.name} style={{borderTop:"1px solid #eee"}}><td style={{padding:"6px 3px",fontWeight:700,color:i<3?["#d4a017","#777","#a65f3b"][i]:"#555"}}>{i+1}</td><td style={{padding:"6px 3px",fontWeight:600}}>{p.name}</td><td style={{padding:"6px 3px"}}>{p.refereeCount||0}</td></tr>)}</tbody></table></div>}
+                </div>
               </div>
             </>
           )}
@@ -610,3 +645,4 @@ ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
 </script>
 </body>
 </html>
+
