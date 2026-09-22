@@ -505,7 +505,8 @@ function App(){
       {tab==="roster"&&(
         <div style={{marginTop:16}}>
           <div className="panel" style={{marginTop:0}}><div className="panel-title">💾 資料保留與移轉</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>同一網址更新版本會保留瀏覽器資料；仍建議定期下載備份，換手機或清除瀏覽器資料後可匯入。</p><div style={{display:"flex",gap:8}}><button className="mini-btn" style={{flex:1}} onClick={exportData}>下載完整備份</button><button className="mini-btn" style={{flex:1}} onClick={()=>importRef.current?.click()}>匯入備份</button><input ref={importRef} type="file" accept="application/json" style={{display:"none"}} onChange={e=>importData(e.target.files?.[0])}/></div></div>
-          <div className="panel"><div className="panel-title">🚫 歷史犯規統計</div>{roster.map(r=><div key={r.name} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #eee",fontSize:13}}><span>{r.name}</span><b>{foulHistory[r.name]||0} 次</b></div>)}</div>\n          <div className="input-row" style={{marginBottom:16}}>
+          <div className="panel"><div className="panel-title">🚫 歷史犯規統計</div>{roster.map(r=><div key={r.name} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #eee",fontSize:13}}><span>{r.name}</span><b>{foulHistory[r.name]||0} 次</b></div>)}</div>
+          <div className="input-row" style={{marginBottom:16}}>
             <input ref={rRef} value={rosterInput} onChange={e=>setRosterInput(e.target.value)} placeholder="新增球員姓名..."/>
             <button className="btn btn-primary" onClick={addRoster}>+新增</button>
           </div>
@@ -618,7 +619,8 @@ function App(){
                 </div>
               </div>
 
-              <div className="panel" style={{marginTop:12}}><div className="panel-title">🚫 本場犯規統計（點球員姓名記錄）</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{[...blackTeam,...whiteTeam].map(p=><button key={p.id} className="mini-btn" onClick={()=>recordFoul(p.name)}>{p.name}：{foulsToday[p.name]||0} 犯</button>)}</div><div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}><button className="mini-btn danger-mini" onClick={undoFoul} disabled={!lastFoul}>↩ 恢復上一筆</button><span style={{fontSize:11,color:"#888"}}>目前只顯示今天的犯規次數</span></div></div>\n              <SecTitle icon="⏳" count={waitQueue.length}>等候區</SecTitle>
+              <div className="panel" style={{marginTop:12}}><div className="panel-title">🚫 本場犯規統計（點球員姓名記錄）</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{[...blackTeam,...whiteTeam].map(p=><button key={p.id} className="mini-btn" onClick={()=>recordFoul(p.name)}>{p.name}：{foulsToday[p.name]||0} 犯</button>)}</div><div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}><button className="mini-btn danger-mini" onClick={undoFoul} disabled={!lastFoul}>↩ 恢復上一筆</button><span style={{fontSize:11,color:"#888"}}>目前只顯示今天的犯規次數</span></div></div>
+              <SecTitle icon="⏳" count={waitQueue.length}>等候區</SecTitle>
               {waitQueue.length===0?<div style={{textAlign:"center",color:"#aaa",fontSize:14,padding:16}}>目前沒有人在等候</div>:(
                 <div>
                   {dutyCount>0&&(
