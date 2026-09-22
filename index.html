@@ -231,6 +231,10 @@ function App(){
   const[noticeDraft,setNoticeDraft]=useState({title:"",body:"",url:""});
   const[cases,setCases]=useState([]);
   const[caseDraft,setCaseDraft]=useState({author:"",title:"",body:"",image:""});
+  const[cloudUser,setCloudUser]=useState(null);
+  const[authEmail,setAuthEmail]=useState("");
+  const[authMessage,setAuthMessage]=useState("");
+  const[cloudCases,setCloudCases]=useState([]);
   const importRef=useRef(null);
   const iRef=useRef(null);
   const rRef=useRef(null);
@@ -246,6 +250,8 @@ function App(){
   useEffect(()=>{try{localStorage.setItem(ADMIN_KEY,JSON.stringify({version:3,captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}))}catch{}},[captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases]);
   useEffect(()=>{const id=setInterval(()=>setTaskNow(Date.now()),1000);return()=>clearInterval(id)},[]);
   useEffect(()=>{setTasks(ts=>ts.map(t=>t.active&&t.order.length&&taskNow-t.startedAt>=t.minutes*60000?{...t,index:(t.index+t.count)%t.order.length,startedAt:taskNow}:t))},[taskNow]);
+  useEffect(()=>{if(!cloud)return;cloud.auth.getSession().then(({data})=>setCloudUser(data.session?.user||null));const {data}=cloud.auth.onAuthStateChange((_event,session)=>setCloudUser(session?.user||null));return()=>data.subscription.unsubscribe()},[]);
+  useEffect(()=>{if(!cloud)return;cloud.from("cases").select("id,author_id,author_name,title,body,image_path,status,created_at,updated_at").order("created_at",{ascending:false}).then(({data})=>{if(data)setCloudCases(data)})},[cloudUser]);
   const selectedDateRef=useRef(selectedDate);
   useEffect(()=>{selectedDateRef.current=selectedDate;},[selectedDate]);
   useEffect(()=>{const sd=selectedDateRef.current;if(!sd)return;setSessions(prev=>({...prev,[sd]:{allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase,nextId,queueCounter}}));},[allPlayers,blackTeam,whiteTeam,waitQueue,blackCon,whiteCon,atkColor,gameCount,log,phase]);
@@ -300,7 +306,9 @@ function App(){
   const changeStat=(tid,gid,name,key,delta)=>patchTournament(tid,t=>({...t,games:t.games.map(g=>g.id===gid?{...g,stats:{...g.stats,[name]:{points:0,rebounds:0,assists:0,turnovers:0,...g.stats[name],[key]:Math.max(0,(g.stats[name]?.[key]||0)+delta)}}}:g)}));
   const teamCaptain=team=>[...captains.tier1,...captains.tier2,...captains.tier3].find(n=>team.some(p=>p.name===n));
   const resizeCaseImage=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,900/img.width,900/img.height);const c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);setCaseDraft(d=>({...d,image:c.toDataURL("image/jpeg",.72)}))};img.src=rd.result};rd.readAsDataURL(file)};
-  const addCase=()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;setCases(x=>[{...caseDraft,id:Date.now(),date:new Date().toISOString()},...x]);setCaseDraft({author:"",title:"",body:"",image:""})};
+  const signIn=async()=>{if(!cloud||!authEmail.trim())return;setAuthMessage("寄送登入連結中…");const {error}=await cloud.auth.signInWithOtp({email:authEmail.trim(),options:{emailRedirectTo:location.href}});setAuthMessage(error?`登入失敗：${error.message}`:"請到信箱點選登入連結")};
+  const signOut=()=>cloud?.auth.signOut();
+  const addCase=async()=>{if(!caseDraft.author.trim()||!caseDraft.title.trim())return;const local={...caseDraft,id:Date.now(),date:new Date().toISOString()};setCases(x=>[local,...x]);if(cloudUser&&cloud){let image_path=null;if(caseDraft.image){const path=`${cloudUser.id}/${Date.now()}.jpg`;const raw=await fetch(caseDraft.image).then(r=>r.blob());const up=await cloud.storage.from("case-images").upload(path,raw,{contentType:"image/jpeg",upsert:false});if(!up.error)image_path=path}const {data,error}=await cloud.from("cases").insert({author_id:cloudUser.id,author_name:caseDraft.author.trim(),title:caseDraft.title.trim(),body:caseDraft.body,image_path,status:"published"}).select().single();if(!error&&data)setCloudCases(x=>[data,...x]);else if(error)setAuthMessage(`雲端投稿失敗：${error.message}`)}setCaseDraft({author:"",title:"",body:"",image:""})};
   const exportData=()=>{const data={schemaVersion:3,exportedAt:new Date().toISOString(),roster,sessions,admin:{captains,refereeGroup,tasks,attendancePoints,holidays,tournaments,announcements,cases}};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`ball-new-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
   const importData=file=>{if(!file)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!confirm("匯入備份會覆蓋目前資料，確定嗎？"))return;setRoster(d.roster||[]);setSessions(d.sessions||{});const a=d.admin||{};setCaptains(a.captains||{tier1:[],tier2:[],tier3:[]});setRefereeGroup(a.refereeGroup||[]);setTasks(a.tasks||[]);setAttendancePoints(a.attendancePoints||{});setHolidays(a.holidays||[]);setTournaments(a.tournaments||[]);setAnnouncements(a.announcements||[]);setCases(a.cases||[]);alert("資料匯入完成") }catch{alert("備份檔格式錯誤")}};rd.readAsText(file)};
 
@@ -433,8 +441,10 @@ function App(){
 
       {/* PLAYER CASES */}
       {tab==="cases"&&<div>
+        <div className="panel"><div className="panel-title">🔐 球員登入（雲端投稿）</div>{cloudUser?<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{flex:1,fontSize:13}}>已登入：{cloudUser.email}</span><button className="mini-btn" onClick={signOut}>登出</button></div>:<div style={{display:"flex",gap:6}}><input style={{flex:1}} type="email" placeholder="球員 Email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}/><button className="mini-btn" onClick={signIn}>寄送登入連結</button></div>} {authMessage&&<div style={{fontSize:12,color:"#666",marginTop:7}}>{authMessage}</div>}</div>
         <div className="panel"><div className="panel-title">📚 球員判例交流</div><p style={{fontSize:12,color:"#666",lineHeight:1.6,marginBottom:9}}>球員可記錄籃球規則、爭議動作與自己的判斷，並附上圖片。</p><div className="form-grid"><input placeholder="球員姓名" value={caseDraft.author} onChange={e=>setCaseDraft(d=>({...d,author:e.target.value}))}/><input placeholder="判例標題" value={caseDraft.title} onChange={e=>setCaseDraft(d=>({...d,title:e.target.value}))}/><textarea className="wide" rows="4" placeholder="情境、判決與理由" value={caseDraft.body} onChange={e=>setCaseDraft(d=>({...d,body:e.target.value}))}/><label className="wide" style={{fontSize:12,color:"#666"}}>附加圖片<input type="file" accept="image/*" onChange={e=>resizeCaseImage(e.target.files?.[0])} style={{width:"100%",marginTop:5}}/></label>{caseDraft.image&&<img className="case-image wide" src={caseDraft.image}/>}<button className="btn btn-primary wide" onClick={addCase}>送出判例</button></div></div>
-        <div className="public-banner">目前投稿保存在投稿者自己的瀏覽器。要讓所有球員共同查看與編輯圖片，需要接上 Supabase Storage 與球員登入權限。</div>
+        <div className="public-banner">已登入時會同步到雲端；未登入仍可先存在本機，方便離線整理。</div>
+        {cloudCases.map(c=><div className="panel" key={`cloud-${c.id}`}><div style={{display:"flex",gap:8}}><b style={{flex:1}}>{c.title}</b>{cloudUser?.id===c.author_id&&<span className="pill" style={{background:"#e8f5e9",color:"#2e7d32"}}>我的投稿</span>}</div><div style={{fontSize:11,color:"#888",marginTop:4}}>{c.author_name} · {new Date(c.created_at).toLocaleString("zh-TW")}</div><div style={{whiteSpace:"pre-wrap",lineHeight:1.6,marginTop:8}}>{c.body}</div></div>)}
         {cases.map(c=><div className="panel" key={c.id}><div style={{display:"flex",gap:8}}><b style={{flex:1}}>{c.title}</b><button className="mini-btn danger-mini" onClick={()=>setCases(x=>x.filter(v=>v.id!==c.id))}>刪除</button></div><div style={{fontSize:11,color:"#888",marginTop:4}}>{c.author} · {new Date(c.date).toLocaleString("zh-TW")}</div><div style={{whiteSpace:"pre-wrap",lineHeight:1.6,marginTop:8}}>{c.body}</div>{c.image&&<img className="case-image" src={c.image}/>}</div>)}
       </div>}
 
